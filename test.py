@@ -2,14 +2,8 @@ import sys
 import subprocess
 import ctypes
 import os
-import json
 
-# المكتبة الوحيدة المطلوبة (ستُثبّت تلقائياً)
 REQUIRED_PACKAGES = ['requests']
-
-def show_message_box(title, message, flags=0x4 | 0x20):
-    """عرض رسالة منبثقة في Windows (نعم/لا)"""
-    return ctypes.windll.user32.MessageBoxW(0, message, title, flags)
 
 def is_package_installed(package_name):
     try:
@@ -22,49 +16,35 @@ def is_package_installed(package_name):
 def install_packages(packages):
     for pkg in packages:
         try:
-            subprocess.run([sys.executable, "-m", "pip", "install", pkg, "--quiet"], check=True)
+            subprocess.run([sys.executable, "-m", "pip", "install", pkg], check=True)
         except subprocess.CalledProcessError:
             return False
     return True
 
-def restart_script():
-    os.execv(sys.executable, [sys.executable] + sys.argv)
-
-def check_and_install_missing_packages():
+def check_and_install():
     missing = [pkg for pkg in REQUIRED_PACKAGES if not is_package_installed(pkg)]
-    if not missing:
-        return True
-    missing_list = "\n".join(f"• {pkg}" for pkg in missing)
-    msg = (f"المكتبات التالية مطلوبة:\n\n{missing_list}\n\n"
-           f"هل تريد تثبيتها الآن؟")
-    result = show_message_box("مكتبات مفقودة", msg)
-    if result == 6:  # Yes
-        if install_packages(missing):
-            show_message_box("تم التثبيت", "تم تثبيت المكتبات بنجاح.\nسيتم إعادة تشغيل السكربت.", 0x40)
-            restart_script()
+    if missing:
+        print(f"[!] المكتبات المطلوبة غير موجودة: {', '.join(missing)}")
+        choice = input("هل تريد تثبيتها الآن؟ (y/n): ").strip().lower()
+        if choice == 'y':
+            if install_packages(missing):
+                print("[+] تم التثبيت. أعد تشغيل السكربت.")
+                input("اضغط Enter للخروج...")
+                sys.exit(0)
+            else:
+                print("[!] فشل التثبيت. قم بالتثبيت يدوياً.")
+                input("اضغط Enter للخروج...")
+                sys.exit(1)
         else:
-            show_message_box("خطأ", "فشل التثبيت. قم بتشغيل:\npip install " + " ".join(missing), 0x10)
-            return False
-    else:
-        show_message_box("تنبيه", "لن تعمل الوظائف بدون المكتبات.", 0x30)
-        return False
+            print("[!] لن تعمل الوظائف. قم بتثبيت المكتبات لاحقاً.")
+            input("اضغط Enter للخروج...")
+            sys.exit(1)
 
-# بعد التأكد من وجود المكتبات، نستوردها
-check_and_install_missing_packages()
+check_and_install()
 import requests
 
 def ask_token():
-    """طلب التوكن من المستخدم عبر نافذة GUI أو الطرفية"""
-    try:
-        import tkinter as tk
-        from tkinter import simpledialog
-        root = tk.Tk()
-        root.withdraw()
-        token = simpledialog.askstring("Discord Token", "🔑 أدخل توكن حسابك في Discord:", parent=root)
-        root.destroy()
-        return token
-    except:
-        return input("🔑 Enter your Discord account token: ")
+    return input("🔑 أدخل توكن حسابك في Discord: ").strip()
 
 def verify_token(token):
     try:
@@ -88,19 +68,19 @@ def check_username(token, username):
         return {'error': str(e)}
 
 def main():
-    # طلب التوكن
+    print("\n=== Discord Username Checker ===\n")
     token = ask_token()
     if not token:
-        show_message_box("خطأ", "لم يتم إدخال أي توكن.", 0x10)
+        print("[!] لم يتم إدخال أي توكن.")
         return
     print("🔄 جاري التحقق من التوكن...")
     verification = verify_token(token)
     if not verification['valid']:
-        show_message_box("خطأ", f"توكن غير صالح: {verification['error']}", 0x10)
+        print(f"❌ توكن غير صالح: {verification['error']}")
         return
     user = verification['user']
-    print(f"\n✅ تم الدخول كـ {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})")
-    print("📌 الأوامر المتاحة:")
+    print(f"✅ تم الدخول كـ {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})")
+    print("\n📌 الأوامر المتاحة:")
     print("   /check <اسم>  - فحص اسم مكون من 4 أحرف")
     print("   /exit         - إنهاء السكربت")
     while True:
