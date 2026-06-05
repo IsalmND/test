@@ -3,7 +3,7 @@ import sys
 import traceback
 
 def run_code_in_current_window(url, tool_name):
-    print(f"[*] Downloading {tool_name} from {url} ...")
+    print(f"[*] Downloading {tool_name} ...")
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=15) as resp:
@@ -12,7 +12,7 @@ def run_code_in_current_window(url, tool_name):
             print(f"[-] {tool_name} is empty.")
             input("\nPress Enter to return to menu...")
             return
-        print(f"[+] Executing {tool_name} in current window...\n")
+        print(f"[+] Executing {tool_name} ...\n")
         try:
             exec(code, globals())
         except Exception as exec_err:
@@ -38,12 +38,12 @@ def main():
         if choice == "1":
             run_code_in_current_window(
                 "https://raw.githubusercontent.com/IsalmND/test/refs/heads/main/user.py",
-                "Tool 1"
+                "Guess users"
             )
         elif choice == "2":
             run_code_in_current_window(
                 "https://raw.githubusercontent.com/IsalmND/test2/refs/heads/main/clone.py",
-                "Tool 2"
+                "Clone Discord Server"
             )
         elif choice == "0":
             print("Exiting.")
