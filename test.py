@@ -31,7 +31,7 @@ def main():
         print("\n" + "=" * 40)
         print("         TOOL SELECTOR")
         print("=" * 40)
-        print("[1] Launch Tool 1")
+        print("[1] Launch Tool 1 brooooooooooo")
         print("[2] Launch Tool 2")
         print("[0] Exit")
         choice = input("\nEnter your choice (1/2/0): ").strip()
