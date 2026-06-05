@@ -14,7 +14,8 @@ def run_code_in_current_window(url, tool_name):
             return
         print(f"[+] Executing {tool_name} in current window...\n")
         try:
-            exec(code)
+            # التعديل الجوهري: تمرير globals() لضمان رؤية الدوال والمتغيرات
+            exec(code, globals())
         except Exception as exec_err:
             print(f"\n[!] Error while executing {tool_name}:\n{exec_err}")
             traceback.print_exc()
