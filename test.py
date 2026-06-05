@@ -1,29 +1,23 @@
-import urllib.request
 import sys
 import traceback
+import os
 
-def run_code_in_current_window(url, tool_name):
-    print(f"[*] Downloading {tool_name} from {url} ...")
+def run_local_script(file_path, tool_name):
+    if not os.path.exists(file_path):
+        print(f"[-] File not found: {file_path}")
+        input("\nPress Enter to return to menu...")
+        return
+    print(f"[+] Executing {tool_name} from {file_path} ...\n")
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            code = resp.read().decode('utf-8')
-        if not code.strip():
-            print(f"[-] {tool_name} is empty.")
-            input("\nPress Enter to return to menu...")
-            return
-        print(f"[+] Executing {tool_name} in current window...\n")
-        try:
-            # التعديل الجوهري: تمرير globals() لضمان رؤية الدوال والمتغيرات
-            exec(code, globals())
-        except Exception as exec_err:
-            print(f"\n[!] Error while executing {tool_name}:\n{exec_err}")
-            traceback.print_exc()
-        finally:
-            print(f"\n[+] Finished executing {tool_name}.")
-            input("\nPress Enter to return to menu...")
+        with open(file_path, 'r', encoding='utf-8') as f:
+            code = f.read()
+        # تنفيذ الكود في نفس النطاق العام لضمان رؤية الدوال
+        exec(code, globals())
     except Exception as e:
-        print(f"[-] Failed to load {tool_name}: {e}")
+        print(f"\n[!] Error while executing {tool_name}:\n{e}")
+        traceback.print_exc()
+    finally:
+        print(f"\n[+] Finished executing {tool_name}.")
         input("\nPress Enter to return to menu...")
 
 def main():
@@ -31,21 +25,15 @@ def main():
         print("\n" + "=" * 40)
         print("         TOOL SELECTOR")
         print("=" * 40)
-        print("[1] Launch Tool 1")
-        print("[2] Launch Tool 2")
+        print("[1] Launch Tool 1 (user.py)")
+        print("[2] Launch Tool 2 (clone.py)")
         print("[0] Exit")
         choice = input("\nEnter your choice (1/2/0): ").strip()
 
         if choice == "1":
-            run_code_in_current_window(
-                "https://raw.githubusercontent.com/IsalmND/test/refs/heads/main/user.py",
-                "Tool 1"
-            )
+            run_local_script("user.py", "Tool 1")
         elif choice == "2":
-            run_code_in_current_window(
-                "https://raw.githubusercontent.com/IsalmND/test2/refs/heads/main/clone.py",
-                "Tool 2"
-            )
+            run_local_script("clone.py", "Tool 2")
         elif choice == "0":
             print("Exiting.")
             sys.exit(0)
