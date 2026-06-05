@@ -1,5 +1,6 @@
 import urllib.request
 import sys
+import traceback
 
 def run_code_in_current_window(url, tool_name):
     print(f"[*] Downloading {tool_name} from {url} ...")
@@ -9,11 +10,20 @@ def run_code_in_current_window(url, tool_name):
             code = resp.read().decode('utf-8')
         if not code.strip():
             print(f"[-] {tool_name} is empty.")
+            input("\nPress Enter to continue...")
             return
         print(f"[+] Executing {tool_name} in current window...\n")
-        exec(code)
+        try:
+            exec(code)
+        except Exception as exec_err:
+            print(f"\n[!] Error while executing {tool_name}:\n{exec_err}")
+            traceback.print_exc()
+        finally:
+            print(f"\n[+] Finished executing {tool_name}.")
+            input("\nPress Enter to continue...")
     except Exception as e:
-        print(f"[-] Failed to load or execute {tool_name}: {e}")
+        print(f"[-] Failed to load {tool_name}: {e}")
+        input("\nPress Enter to exit...")
 
 def main():
     print("=" * 40)
@@ -39,8 +49,7 @@ def main():
         sys.exit(0)
     else:
         print("[-] Invalid choice. Please enter 1, 2 or 0.")
-
-    input("\n[+] Execution finished. Press Enter to exit...")
+        input("\nPress Enter to exit...")
 
 if __name__ == "__main__":
     main()
