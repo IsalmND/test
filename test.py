@@ -26,12 +26,12 @@ def main():
 
     if choice == "1":
         download_and_execute(
-            "https://raw.githubusercontent.com/IsalmND/test/refs/heads/main/test.py",
+            "https://raw.githubusercontent.com/IsalmND/test/refs/heads/main/user.py",
             "Tool 1"
         )
     elif choice == "2":
         download_and_execute(
-            "https://raw.githubusercontent.com/IsalmND/test2/refs/heads/main/test2.py",
+            "https://raw.githubusercontent.com/IsalmND/test2/refs/heads/main/clone.py",
             "Tool 2"
         )
     elif choice == "0":
