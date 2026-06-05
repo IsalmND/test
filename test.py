@@ -1,57 +1,51 @@
-import urllib.request
 import sys
 import traceback
+import os
+import time
 
-def run_code_in_current_window(url, tool_name):
-    print(f"[*] Downloading {tool_name} from {url} ...")
+def run_local_script(file_path, tool_name):
+    # رسالة عامة دون ذكر رابط
+    print(f"جاري تحميل {tool_name} يرجى الانتظار...")
+    time.sleep(1)  # محاكاة بسيطة للتحميل (اختياري)
+
+    if not os.path.exists(file_path):
+        print(f"[-] الملف غير موجود: {file_path}")
+        input("\nاضغط Enter للعودة إلى القائمة...")
+        return
+
+    print(f"[+] تشغيل {tool_name} ...\n")
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            code = resp.read().decode('utf-8')
-        if not code.strip():
-            print(f"[-] {tool_name} is empty.")
-            input("\nPress Enter to return to menu...")
-            return
-        print(f"[+] Executing {tool_name} in current window...\n")
-        try:
-            # التعديل الجوهري: تمرير globals() لضمان رؤية الدوال والمتغيرات
-            exec(code, globals())
-        except Exception as exec_err:
-            print(f"\n[!] Error while executing {tool_name}:\n{exec_err}")
-            traceback.print_exc()
-        finally:
-            print(f"\n[+] Finished executing {tool_name}.")
-            input("\nPress Enter to return to menu...")
+        with open(file_path, 'r', encoding='utf-8') as f:
+            code = f.read()
+        # تنفيذ الكود في نفس النطاق العام
+        exec(code, globals())
     except Exception as e:
-        print(f"[-] Failed to load {tool_name}: {e}")
-        input("\nPress Enter to return to menu...")
+        print(f"\n[!] خطأ أثناء تشغيل {tool_name}:\n{e}")
+        traceback.print_exc()
+    finally:
+        print(f"\n[+] انتهى تشغيل {tool_name}.")
+        input("\nاضغط Enter للعودة إلى القائمة...")
 
 def main():
     while True:
         print("\n" + "=" * 40)
-        print("         TOOL SELECTOR")
+        print("         أداة اختيار الأدوات")
         print("=" * 40)
-        print("[1] Launch Tool 1 brooooooooooo")
-        print("[2] Launch Tool 2")
-        print("[0] Exit")
-        choice = input("\nEnter your choice (1/2/0): ").strip()
+        print("[1] تشغيل الأداة 1")
+        print("[2] تشغيل الأداة 2")
+        print("[0] خروج")
+        choice = input("\nاختر (1/2/0): ").strip()
 
         if choice == "1":
-            run_code_in_current_window(
-                "https://raw.githubusercontent.com/IsalmND/test/refs/heads/main/user.py",
-                "Tool 1"
-            )
+            run_local_script("user.py", "الأداة 1")
         elif choice == "2":
-            run_code_in_current_window(
-                "https://raw.githubusercontent.com/IsalmND/test2/refs/heads/main/clone.py",
-                "Tool 2"
-            )
+            run_local_script("clone.py", "الأداة 2")
         elif choice == "0":
-            print("Exiting.")
+            print("خروج.")
             sys.exit(0)
         else:
-            print("[-] Invalid choice. Please enter 1, 2 or 0.")
-            input("\nPress Enter to continue...")
+            print("[-] اختيار غير صالح. الرجاء إدخال 1 أو 2 أو 0.")
+            input("\nاضغط Enter للمتابعة...")
 
 if __name__ == "__main__":
     main()
