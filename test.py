@@ -1,7 +1,11 @@
 import urllib.request
+import subprocess
+import tempfile
+import os
+import time
 import sys
 
-def download_and_execute(url, tool_name):
+def run_script_in_cmd(url, tool_name):
     print(f"[*] Downloading {tool_name} from {url} ...")
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -10,10 +14,22 @@ def download_and_execute(url, tool_name):
         if not code.strip():
             print(f"[-] {tool_name} is empty.")
             return
-        print(f"[+] Running {tool_name} ...\n")
-        exec(code)
+
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
+            f.write(code)
+            tmp_path = f.name
+
+        print(f"[+] Launching {tool_name} in a new CMD window...")
+        subprocess.Popen(f'cmd.exe /c python "{tmp_path}"', creationflags=subprocess.CREATE_NEW_CONSOLE)
+
+        time.sleep(5)
+        try:
+            os.remove(tmp_path)
+        except:
+            pass
+
     except Exception as e:
-        print(f"[-] Failed to load or execute {tool_name}: {e}")
+        print(f"[-] Failed: {e}")
 
 def main():
     print("=" * 40)
@@ -25,13 +41,13 @@ def main():
     choice = input("\nEnter your choice (1/2/0): ").strip()
 
     if choice == "1":
-        download_and_execute(
-            "https://raw.githubusercontent.com/IsalmND/test/refs/heads/main/user.py",
+        run_script_in_cmd(
+            "https://raw.githubusercontent.com/IsalmND/test/refs/heads/main/test.py",
             "Tool 1"
         )
     elif choice == "2":
-        download_and_execute(
-            "https://raw.githubusercontent.com/IsalmND/test2/refs/heads/main/clone.py",
+        run_script_in_cmd(
+            "https://raw.githubusercontent.com/IsalmND/test2/refs/heads/main/test2.py",
             "Tool 2"
         )
     elif choice == "0":
