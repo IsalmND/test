@@ -5,7 +5,7 @@ import time
 
 def run_local_script(file_path, tool_name):
     # رسالة عامة دون ذكر رابط
-    print(f"جاري تحميل {tool_name} يرجى الانتظار...")
+    print(f"جاري تحميل {tool_name} يرجى الانتظار... ")
     time.sleep(1)  # محاكاة بسيطة للتحميل (اختياري)
 
     if not os.path.exists(file_path):
@@ -31,7 +31,7 @@ def main():
         print("\n" + "=" * 40)
         print("         أداة اختيار الأدوات")
         print("=" * 40)
-        print("[1] تشغيل الأداة 1")
+        print("[1] تشغيل الأداة 1 3aaaaaaaaaaaaaaaaa")
         print("[2] تشغيل الأداة 2")
         print("[0] خروج")
         choice = input("\nاختر (1/2/0): ").strip()
