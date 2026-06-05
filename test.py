@@ -40,5 +40,7 @@ def main():
     else:
         print("[-] Invalid choice. Please enter 1, 2 or 0.")
 
+    input("\n[+] Execution finished. Press Enter to exit...")
+
 if __name__ == "__main__":
     main()
