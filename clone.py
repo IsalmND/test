@@ -222,7 +222,7 @@ class DiscordCloner:
             log(f"Deleted webhook: {wh['name']}", 'warning')
             await self.delay(300)
 
-    # ------------------- نسخ الرتب -------------------
+    # ------------------- نسخ الرتب (تم التصحيح هنا) -------------------
     async def clone_roles(self, session: aiohttp.ClientSession, source_id: str, target_id: str, clone_icons: bool):
         source_roles = await self._request(session, f'/guilds/{source_id}/roles')
         target_roles = await self._request(session, f'/guilds/{target_id}/roles')
@@ -249,15 +249,16 @@ class DiscordCloner:
                 self.clone_stats['roles'] += 1
                 log(f"Cloned role: {role['name']}", 'success')
 
+                # ========== التصحيح: استخدام JSON بدلاً من FormData لأيقونات الرتب ==========
                 if clone_icons and role.get('icon'):
                     try:
                         icon_url = f"https://cdn.discordapp.com/role-icons/{role['id']}/{role['icon']}.png"
                         async with session.get(icon_url) as resp:
                             icon_data = await resp.read()
                         b64_icon = base64.b64encode(icon_data).decode()
-                        form = aiohttp.FormData()
-                        form.add_field('icon', b64_icon, content_type='image/png')
-                        await self._request(session, f'/guilds/{target_id}/roles/{new_role["id"]}', 'PATCH', form, is_form=True)
+                        # إرسال أيقونة الرتبة كـ JSON مع Data URI
+                        json_payload = {'icon': f'data:image/png;base64,{b64_icon}'}
+                        await self._request(session, f'/guilds/{target_id}/roles/{new_role["id"]}', 'PATCH', json_payload, is_form=False)
                         self.clone_stats['role_icons'] += 1
                         log(f"Cloned role icon: {role['name']}", 'success')
                     except Exception as e:
@@ -386,7 +387,7 @@ class DiscordCloner:
                 log(f"Cloned sticker: {sticker['name']}", 'success')
             await self.delay(500)
 
-    # ------------------- نسخ AutoMod (معدلة) -------------------
+    # ------------------- نسخ AutoMod -------------------
     async def clone_auto_mod(self, session: aiohttp.ClientSession, source_id: str, target_id: str):
         rules = await self._request(session, f'/guilds/{source_id}/auto-moderation/rules')
         if not rules:
